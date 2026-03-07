@@ -101,8 +101,10 @@ setup_database() {
     DB_PASSWORD=$(generate_password)
     log_info "Configuring PostgreSQL..."
 
+    # Create user if not exists, then always set password to match what we write to .db_password
     sudo -u postgres psql -tc "SELECT 1 FROM pg_roles WHERE rolname='$BATCHFLOW_DB_USER'" | grep -q 1 || \
         sudo -u postgres psql -c "CREATE USER $BATCHFLOW_DB_USER WITH PASSWORD '$DB_PASSWORD';"
+    sudo -u postgres psql -c "ALTER USER $BATCHFLOW_DB_USER WITH PASSWORD '$DB_PASSWORD';"
 
     sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='$BATCHFLOW_DB'" | grep -q 1 || \
         sudo -u postgres psql -c "CREATE DATABASE $BATCHFLOW_DB OWNER $BATCHFLOW_DB_USER;"
