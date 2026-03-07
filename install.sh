@@ -137,8 +137,13 @@ install_backend() {
     cd "$BATCHFLOW_HOME/backend"
     python3 -m venv venv
     source venv/bin/activate
-    pip install --quiet --upgrade pip
-    pip install --quiet -r requirements.txt
+    pip install --upgrade pip
+    pip install -r requirements.txt
+    if ! python -c "import bcrypt, email_validator, fastapi, sqlalchemy, jose, pydantic_settings" 2>&1; then
+        log_error "Required Python packages failed to install"
+        exit 1
+    fi
+    log_ok "Python dependencies installed"
     deactivate
 
     # Generate secure secret key
@@ -150,7 +155,7 @@ APP_NAME=BatchFlow ERP
 DEBUG=false
 DATABASE_URL=postgresql://$BATCHFLOW_DB_USER:$DB_PASSWORD@localhost:5432/$BATCHFLOW_DB
 SECRET_KEY=$SECRET_KEY
-CORS_ORIGINS=http://localhost,http://localhost:80,https://localhost,https://localhost:443
+CORS_ORIGINS=http://localhost,http://localhost:80,https://localhost,https://localhost:443,http://$(hostname -I | awk '{print $1}'),http://$(hostname -I | awk '{print $1}'):80
 UPLOAD_DIR=$DATA_DIR/uploads
 LOG_DIR=$LOG_DIR
 EOF
@@ -163,6 +168,13 @@ EOF
     source venv/bin/activate
     python -c "from app.core.database import engine, Base; from app.models import *; Base.metadata.create_all(bind=engine)"
     python seed_data.py
+
+    # Verify the app can actually start
+    log_info "Verifying application loads correctly..."
+    if ! python -c "from app.main import app; print('App verified')" 2>&1; then
+        log_error "Application failed to load. Check error above."
+        exit 1
+    fi
     deactivate
 
     chown -R "$BATCHFLOW_USER:$BATCHFLOW_USER" "$BATCHFLOW_HOME/backend"
