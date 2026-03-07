@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<QBWCXML>
+  <AppName>BatchFlow ERP</AppName>
+  <AppID>BatchFlowERP</AppID>
+  <AppURL>https://your-server:8443/qbwc/soap</AppURL>
+  <AppDescription>BatchFlow ERP QuickBooks Sync</AppDescription>
+  <AppSupport>https://your-server/support</AppSupport>
+  <UserName>batchflow_qbwc</UserName>
+  <OwnerID>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</OwnerID>
+  <FileID>{12345678-ABCD-EF01-2345-6789ABCDEF01}</FileID>
+  <QBType>QBFS</QBType>
+  <Scheduler>
+    <RunEveryNMinutes>5</RunEveryNMinutes>
+  </Scheduler>
+  <IsReadOnly>false</IsReadOnly>
+</QBWCXML>
