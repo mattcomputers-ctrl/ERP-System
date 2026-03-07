@@ -107,8 +107,12 @@ setup_database() {
         sudo -u postgres psql -c "CREATE USER $BATCHFLOW_DB_USER WITH PASSWORD '$DB_PASSWORD';"
     sudo -u postgres psql -c "ALTER USER $BATCHFLOW_DB_USER WITH PASSWORD '$DB_PASSWORD';"
 
-    sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='$BATCHFLOW_DB'" | grep -q 1 || \
-        sudo -u postgres psql -c "CREATE DATABASE $BATCHFLOW_DB OWNER $BATCHFLOW_DB_USER;"
+    # Drop and recreate database to ensure clean state on re-install
+    if sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='$BATCHFLOW_DB'" | grep -q 1; then
+        log_info "Dropping existing database for clean re-install..."
+        sudo -u postgres psql -c "DROP DATABASE $BATCHFLOW_DB;"
+    fi
+    sudo -u postgres psql -c "CREATE DATABASE $BATCHFLOW_DB OWNER $BATCHFLOW_DB_USER;"
 
     sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $BATCHFLOW_DB TO $BATCHFLOW_DB_USER;"
 
