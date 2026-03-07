@@ -16,6 +16,8 @@ import TraceabilityPage from './pages/TraceabilityPage';
 import ReportsPage from './pages/ReportsPage';
 import SettingsPage from './pages/SettingsPage';
 import AdminPage from './pages/AdminPage';
+import DocumentsPage from './pages/DocumentsPage';
+import QuickBooksPage from './pages/QuickBooksPage';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuthStore();
@@ -47,6 +49,8 @@ const App: React.FC = () => {
         <Route path="traceability" element={<TraceabilityPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="documents" element={<DocumentsPage />} />
+        <Route path="quickbooks" element={<QuickBooksPage />} />
         <Route path="admin" element={<AdminPage />} />
       </Route>
     </Routes>

@@ -193,3 +193,29 @@ export const settingsAPI = {
   updateShipTo: (id: number, data: any) => api.put(`/settings/ship-tos/${id}`, data),
   deleteShipTo: (id: number) => api.delete(`/settings/ship-tos/${id}`),
 };
+
+// --- Documents ---
+export const documentsAPI = {
+  listTemplates: (docType?: string) => api.get('/documents/templates', { params: { doc_type: docType } }),
+  getTemplate: (id: number) => api.get(`/documents/templates/${id}`),
+  createTemplate: (data: any) => api.post('/documents/templates', data),
+  updateTemplate: (id: number, data: any) => api.put(`/documents/templates/${id}`, data),
+  deleteTemplate: (id: number) => api.delete(`/documents/templates/${id}`),
+  generateDocument: (data: any) => api.post('/documents/generate', data),
+  listGenerated: (params?: any) => api.get('/documents/generated', { params }),
+  downloadDocument: (id: number) => api.get(`/documents/download/${id}`, { responseType: 'blob' }),
+  listCOAs: (params?: any) => api.get('/documents/coa', { params }),
+  getCOA: (id: number) => api.get(`/documents/coa/${id}`),
+  createCOA: (data: any) => api.post('/documents/coa', data),
+  approveCOA: (id: number, data?: any) => api.post(`/documents/coa/${id}/approve`, data || {}),
+  downloadCOA: (id: number) => api.get(`/documents/coa/${id}/download`, { responseType: 'blob' }),
+};
+
+// --- QuickBooks ---
+export const quickbooksAPI = {
+  getStatus: () => api.get('/quickbooks/status'),
+  getPending: () => api.get('/quickbooks/pending'),
+  triggerSync: () => api.post('/quickbooks/sync'),
+  getSyncResults: () => api.get('/quickbooks/sync/results'),
+  previewQbxml: (entityType: string, entityId: number) => api.get(`/quickbooks/qbxml/preview/${entityType}/${entityId}`),
+};

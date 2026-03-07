@@ -329,3 +329,61 @@ export interface Branding {
   primary_color: string;
   updated_at: string;
 }
+
+export interface DocumentTemplate {
+  id: number;
+  name: string;
+  doc_type: string;
+  description: string | null;
+  layout_json: string;
+  header_html: string | null;
+  footer_html: string | null;
+  is_default: boolean;
+  is_active: boolean;
+  created_by: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GeneratedDocument {
+  id: number;
+  doc_type: string;
+  reference_type: string;
+  reference_id: number;
+  template_id: number | null;
+  file_path: string;
+  file_name: string;
+  generated_by: number | null;
+  generated_at: string;
+}
+
+export interface COACertificate {
+  id: number;
+  certificate_number: string;
+  lot_id: number;
+  specification_id: number | null;
+  customer_id: number | null;
+  pdf_path: string | null;
+  status: string;
+  approved_by: number | null;
+  approved_at: string | null;
+  notes: string | null;
+  created_by: number | null;
+  created_at: string;
+}
+
+export interface QBSyncStatus {
+  enabled: boolean;
+  interval_seconds: number;
+  is_running: boolean;
+  last_sync: string | null;
+  last_result_count: number;
+}
+
+export interface QBPendingSync {
+  customers: number;
+  vendors: number;
+  invoices: number;
+  purchase_orders: number;
+  total: number;
+}

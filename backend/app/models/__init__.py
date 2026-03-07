@@ -6,3 +6,4 @@ from app.models.sales import Customer, ShipTo, SalesOrder, SalesOrderLine, Shipm
 from app.models.purchasing import Vendor, PurchaseOrder, PurchaseOrderLine, Receipt, ReceiptLine
 from app.models.manufacturing import Formula, FormulaVersion, FormulaIngredient, ProductionOrder, ProductionConsumption, ProductionOutput
 from app.models.quality import QCSpecification, QCTest, QCResult
+from app.models.documents import DocumentTemplate, GeneratedDocument, COACertificate
