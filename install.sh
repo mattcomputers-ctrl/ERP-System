@@ -139,7 +139,7 @@ install_backend() {
     source venv/bin/activate
     pip install --upgrade pip
     pip install -r requirements.txt
-    if ! python -c "import bcrypt, email_validator, fastapi, sqlalchemy, jose, pydantic_settings" 2>&1; then
+    if ! python -c "import bcrypt, fastapi, sqlalchemy, jose, pydantic_settings" 2>&1; then
         log_error "Required Python packages failed to install"
         exit 1
     fi
