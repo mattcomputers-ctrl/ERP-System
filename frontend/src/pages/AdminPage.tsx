@@ -79,8 +79,8 @@ const AdminPage: React.FC = () => {
         {tab === 'groups' && (
           <DataTable
             columns={[
-              { header: 'Name', accessor: 'name' },
-              { header: 'Description', accessor: 'description' },
+              { header: 'Name', accessor: 'name' as any },
+              { header: 'Description', accessor: 'description' as any },
             ]}
             data={groups?.data || []}
           />
