@@ -120,6 +120,13 @@ install_backend() {
     log_info "Installing backend application..."
 
     INSTALL_DIR=$(cd "$(dirname "$0")" && pwd)
+
+    # Clean previous install to ensure fresh files and venv
+    if [ -d "$BATCHFLOW_HOME/backend" ]; then
+        log_info "Removing previous backend installation..."
+        rm -rf "$BATCHFLOW_HOME/backend"
+    fi
+
     cp -r "$INSTALL_DIR/backend" "$BATCHFLOW_HOME/backend"
 
     cd "$BATCHFLOW_HOME/backend"
@@ -161,6 +168,14 @@ install_frontend() {
     log_info "Building frontend application..."
 
     INSTALL_DIR=$(cd "$(dirname "$0")" && pwd)
+
+    # Clean previous install
+    if [ -d "$BATCHFLOW_HOME/frontend" ]; then
+        log_info "Removing previous frontend installation..."
+        rm -rf "$BATCHFLOW_HOME/frontend"
+    fi
+    rm -rf "$BATCHFLOW_HOME/static"
+
     cp -r "$INSTALL_DIR/frontend" "$BATCHFLOW_HOME/frontend"
 
     cd "$BATCHFLOW_HOME/frontend"
