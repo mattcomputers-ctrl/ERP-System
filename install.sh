@@ -232,8 +232,13 @@ StandardError=append:$LOG_DIR/batchflow-error.log
 WantedBy=multi-user.target
 EOF
 
+    # Clear old logs so errors from previous installs don't cause confusion
+    > "$LOG_DIR/batchflow.log"
+    > "$LOG_DIR/batchflow-error.log"
+
     systemctl daemon-reload
     systemctl enable batchflow
+    systemctl stop batchflow 2>/dev/null || true
     systemctl start batchflow
 
     # Verify the service started and API is responding
