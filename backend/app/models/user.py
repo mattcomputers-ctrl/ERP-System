@@ -25,7 +25,13 @@ class User(Base):
     is_superuser = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    groups = relationship("UserGroup", secondary="user_group_associations", back_populates="users")
+    groups = relationship(
+        "UserGroup",
+        secondary="user_group_associations",
+        primaryjoin="User.id == UserGroupAssociation.user_id",
+        secondaryjoin="UserGroup.id == UserGroupAssociation.group_id",
+        back_populates="users",
+    )
 
 
 class UserGroup(Base):
@@ -35,7 +41,13 @@ class UserGroup(Base):
     description = Column(String(500), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    users = relationship("User", secondary="user_group_associations", back_populates="groups")
+    users = relationship(
+        "User",
+        secondary="user_group_associations",
+        primaryjoin="UserGroup.id == UserGroupAssociation.group_id",
+        secondaryjoin="User.id == UserGroupAssociation.user_id",
+        back_populates="groups",
+    )
     permissions = relationship("GroupPermission", back_populates="group", cascade="all, delete-orphan")
 
 
