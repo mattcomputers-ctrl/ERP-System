@@ -21,8 +21,15 @@ const LoginPage: React.FC = () => {
       setUser(user);
       toast.success('Login successful');
       navigate('/');
-    } catch {
-      toast.error('Invalid username or password');
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail;
+      if (err?.response?.status === 401) {
+        toast.error(detail || 'Invalid username or password');
+      } else if (err?.response?.status) {
+        toast.error(`Login failed (${err.response.status}): ${detail || err.message}`);
+      } else {
+        toast.error(`Connection error: ${err.message}`);
+      }
     } finally {
       setLoading(false);
     }

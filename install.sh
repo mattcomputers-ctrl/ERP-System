@@ -223,7 +223,20 @@ EOF
     systemctl daemon-reload
     systemctl enable batchflow
     systemctl start batchflow
-    log_ok "BatchFlow service configured and started"
+
+    # Verify the service started and API is responding
+    sleep 3
+    if ! systemctl is-active --quiet batchflow; then
+        log_error "BatchFlow service failed to start. Check logs:"
+        log_error "  sudo journalctl -u batchflow -n 30"
+        log_error "  cat $LOG_DIR/batchflow-error.log"
+        exit 1
+    fi
+    if ! curl -sf http://127.0.0.1:8000/api/health > /dev/null 2>&1; then
+        log_warn "API server not responding yet on port 8000. Check: sudo systemctl status batchflow"
+    else
+        log_ok "BatchFlow service started and API is healthy"
+    fi
 }
 
 configure_nginx() {
