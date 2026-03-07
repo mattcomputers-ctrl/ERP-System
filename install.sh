@@ -222,7 +222,7 @@ User=$BATCHFLOW_USER
 Group=$BATCHFLOW_USER
 WorkingDirectory=$BATCHFLOW_HOME/backend
 Environment=PATH=$BATCHFLOW_HOME/backend/venv/bin:/usr/bin
-ExecStart=$BATCHFLOW_HOME/backend/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 4
+ExecStart=$BATCHFLOW_HOME/backend/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 Restart=always
 RestartSec=5
 StandardOutput=append:$LOG_DIR/batchflow.log
