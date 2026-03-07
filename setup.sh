@@ -339,18 +339,29 @@ deploy_backend() {
         IS_FRESH=true
     fi
 
-    # Preserve .env during update
+    # On update: preserve .env. On install: always regenerate (DB password changed).
     local ENV_BACKUP=""
-    if [[ -f "$BATCHFLOW_HOME/backend/.env" ]]; then
+    if [[ "$MODE" == "update" && -f "$BATCHFLOW_HOME/backend/.env" ]]; then
         ENV_BACKUP=$(cat "$BATCHFLOW_HOME/backend/.env")
     fi
 
-    # Sync source files (preserve venv and .env)
-    if [[ "$IS_FRESH" == true ]]; then
-        rm -rf "$BATCHFLOW_HOME/backend"
-        cp -r "$INSTALL_DIR/backend" "$BATCHFLOW_HOME/backend"
+    # Sync source files (preserve venv on update)
+    if [[ "$MODE" == "install" ]]; then
+        # Fresh install: wipe and copy everything (keep venv if it exists to save time)
+        if [[ -d "$BATCHFLOW_HOME/backend/venv" ]]; then
+            # Preserve venv, replace everything else
+            log_info "Syncing backend source files (clean install, reusing venv)..."
+            rsync -a --delete \
+                --exclude='venv/' \
+                --exclude='__pycache__/' \
+                --exclude='*.pyc' \
+                "$INSTALL_DIR/backend/" "$BATCHFLOW_HOME/backend/"
+        else
+            rm -rf "$BATCHFLOW_HOME/backend"
+            cp -r "$INSTALL_DIR/backend" "$BATCHFLOW_HOME/backend"
+        fi
     else
-        # Update only source code, not venv or .env
+        # Update: preserve venv and .env
         log_info "Syncing backend source files..."
         rsync -a --delete \
             --exclude='venv/' \
@@ -360,15 +371,15 @@ deploy_backend() {
             "$INSTALL_DIR/backend/" "$BATCHFLOW_HOME/backend/"
     fi
 
-    # Restore .env if we had one
+    # Restore .env if we saved one (update mode only)
     if [[ -n "$ENV_BACKUP" ]]; then
         echo "$ENV_BACKUP" > "$BATCHFLOW_HOME/backend/.env"
         chmod 600 "$BATCHFLOW_HOME/backend/.env"
     fi
 
-    # Setup venv if fresh
+    # Setup venv if it doesn't exist
     cd "$BATCHFLOW_HOME/backend"
-    if [[ "$IS_FRESH" == true ]]; then
+    if [[ ! -d "venv" ]]; then
         log_info "Creating Python virtual environment..."
         python3 -m venv venv
     fi
@@ -380,7 +391,7 @@ deploy_backend() {
     pip install -r requirements.txt --quiet
     deactivate
 
-    # Generate .env on fresh install
+    # Generate .env for fresh install (or if none was restored)
     if [[ -z "$ENV_BACKUP" ]]; then
         SECRET_KEY=$(openssl rand -hex 32)
         DB_PASSWORD=$(cat "$BATCHFLOW_HOME/.db_password")
