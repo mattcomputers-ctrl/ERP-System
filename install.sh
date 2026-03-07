@@ -4,6 +4,7 @@ set -euo pipefail
 # BatchFlow ERP - Ubuntu Server Installer
 # Supports Ubuntu 22.04+ (Jammy) and newer
 
+INSTALL_DIR=$(cd "$(dirname "$0")" && pwd)
 BATCHFLOW_HOME="/opt/batchflow"
 BATCHFLOW_USER="batchflow"
 BATCHFLOW_DB="batchflow_erp"
@@ -119,7 +120,7 @@ setup_database() {
 install_backend() {
     log_info "Installing backend application..."
 
-    INSTALL_DIR=$(cd "$(dirname "$0")" && pwd)
+
 
     # Clean previous install to ensure fresh files and venv
     if [ -d "$BATCHFLOW_HOME/backend" ]; then
@@ -167,7 +168,7 @@ EOF
 install_frontend() {
     log_info "Building frontend application..."
 
-    INSTALL_DIR=$(cd "$(dirname "$0")" && pwd)
+
 
     # Clean previous install
     if [ -d "$BATCHFLOW_HOME/frontend" ]; then
