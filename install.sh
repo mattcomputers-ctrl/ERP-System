@@ -110,6 +110,12 @@ setup_database() {
     # Drop and recreate database to ensure clean state on re-install
     if sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='$BATCHFLOW_DB'" | grep -q 1; then
         log_info "Dropping existing database for clean re-install..."
+        systemctl stop batchflow 2>/dev/null || true
+        sudo -u postgres psql -c "
+            SELECT pg_terminate_backend(pid)
+            FROM pg_stat_activity
+            WHERE datname = '$BATCHFLOW_DB' AND pid <> pg_backend_pid();
+        " > /dev/null 2>&1 || true
         sudo -u postgres psql -c "DROP DATABASE $BATCHFLOW_DB;"
     fi
     sudo -u postgres psql -c "CREATE DATABASE $BATCHFLOW_DB OWNER $BATCHFLOW_DB_USER;"
