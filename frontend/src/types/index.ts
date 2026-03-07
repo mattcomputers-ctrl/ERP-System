@@ -162,6 +162,8 @@ export interface FormulaVersion {
   batch_size: number;
   expected_yield_percent: number;
   is_current: boolean;
+  change_reason: string | null;
+  reverted_from_version_id: number | null;
   ingredients: FormulaIngredient[];
 }
 
@@ -202,6 +204,30 @@ export interface QCTest {
   min_value: number | null;
   max_value: number | null;
   uom: string | null;
+}
+
+export interface ItemAlias {
+  id: number;
+  item_id: number;
+  alias_code: string;
+  alias_name: string | null;
+  alias_type: string | null;
+  reference_id: number | null;
+  notes: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface PackComponent {
+  id: number;
+  pack_item_id: number;
+  component_item_id: number;
+  quantity: number;
+  sequence: number;
+  uom_id: number | null;
+  notes: string | null;
+  is_active: boolean;
+  created_at: string;
 }
 
 export interface UserGroup {

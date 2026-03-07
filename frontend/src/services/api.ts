@@ -85,6 +85,19 @@ export const inventoryAPI = {
   listUOMs: () => api.get('/inventory/uoms'),
   createUOM: (data: any) => api.post('/inventory/uoms', data),
   getValuation: (itemId?: number) => api.get('/inventory/valuation', { params: { item_id: itemId } }),
+  // Aliases
+  listAliases: (itemId: number) => api.get(`/inventory/items/${itemId}/aliases`),
+  createAlias: (itemId: number, data: any) => api.post(`/inventory/items/${itemId}/aliases`, data),
+  updateAlias: (itemId: number, aliasId: number, data: any) => api.put(`/inventory/items/${itemId}/aliases/${aliasId}`, data),
+  deleteAlias: (itemId: number, aliasId: number) => api.delete(`/inventory/items/${itemId}/aliases/${aliasId}`),
+  lookupByAlias: (code: string, type?: string) => api.get('/inventory/alias-lookup', { params: { alias_code: code, alias_type: type } }),
+  // Pack Components
+  listPackComponents: (itemId: number) => api.get(`/inventory/items/${itemId}/pack-components`),
+  setPackComponents: (itemId: number, data: any) => api.put(`/inventory/items/${itemId}/pack-components`, data),
+  addPackComponent: (itemId: number, data: any) => api.post(`/inventory/items/${itemId}/pack-components`, data),
+  deletePackComponent: (itemId: number, componentId: number) => api.delete(`/inventory/items/${itemId}/pack-components/${componentId}`),
+  assemblePack: (data: any) => api.post('/inventory/packs/assemble', data),
+  disassemblePack: (data: any) => api.post('/inventory/packs/disassemble', data),
 };
 
 // --- Sales ---
@@ -120,6 +133,8 @@ export const manufacturingAPI = {
   createFormula: (data: any) => api.post('/manufacturing/formulas', data),
   getFormula: (id: number) => api.get(`/manufacturing/formulas/${id}`),
   addVersion: (formulaId: number, data: any) => api.post(`/manufacturing/formulas/${formulaId}/versions`, data),
+  listVersions: (formulaId: number) => api.get(`/manufacturing/formulas/${formulaId}/versions`),
+  revertVersion: (formulaId: number, versionId: number, reason: string) => api.post(`/manufacturing/formulas/${formulaId}/versions/${versionId}/revert`, { reason }),
   listProductionOrders: (params?: any) => api.get('/manufacturing/production-orders', { params }),
   createProductionOrder: (data: any) => api.post('/manufacturing/production-orders', data),
   getProductionOrder: (id: number) => api.get(`/manufacturing/production-orders/${id}`),

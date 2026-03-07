@@ -28,11 +28,14 @@ class FormulaVersion(Base):
     batch_uom_id = Column(Integer, ForeignKey("units_of_measure.id"), nullable=True)
     expected_yield_percent = Column(Numeric(8, 4), default=100)
     notes = Column(Text, nullable=True)
+    change_reason = Column(Text, nullable=True)  # reason for creating this version
+    reverted_from_version_id = Column(Integer, ForeignKey("formula_versions.id"), nullable=True)
     is_current = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     formula = relationship("Formula", back_populates="versions")
     batch_uom = relationship("UnitOfMeasure")
     ingredients = relationship("FormulaIngredient", back_populates="formula_version", cascade="all, delete-orphan")
+    reverted_from = relationship("FormulaVersion", remote_side=[id], uselist=False)
 
 
 class FormulaIngredient(Base):

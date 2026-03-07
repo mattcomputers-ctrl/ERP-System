@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from decimal import Decimal
 
@@ -140,6 +140,78 @@ class InventoryTransactionResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# --- Item Aliases ---
+
+class ItemAliasBase(BaseModel):
+    alias_code: str
+    alias_name: Optional[str] = None
+    alias_type: Optional[str] = None  # customer, vendor, internal, regulatory, legacy
+    reference_id: Optional[int] = None
+    notes: Optional[str] = None
+
+
+class ItemAliasCreate(ItemAliasBase):
+    pass
+
+
+class ItemAliasUpdate(BaseModel):
+    alias_code: Optional[str] = None
+    alias_name: Optional[str] = None
+    alias_type: Optional[str] = None
+    reference_id: Optional[int] = None
+    notes: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class ItemAliasResponse(ItemAliasBase):
+    id: int
+    item_id: int
+    is_active: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# --- Pack Extensions ---
+
+class PackComponentBase(BaseModel):
+    component_item_id: int
+    quantity: Decimal
+    sequence: int = 0
+    uom_id: Optional[int] = None
+    notes: Optional[str] = None
+
+
+class PackComponentCreate(PackComponentBase):
+    pass
+
+
+class PackComponentResponse(PackComponentBase):
+    id: int
+    pack_item_id: int
+    is_active: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PackDefinitionCreate(BaseModel):
+    """Create or replace the full pack definition for an item."""
+    components: List[PackComponentCreate]
+
+
+class PackOperationRequest(BaseModel):
+    """Request to pack or unpack items (creates/consumes inventory)."""
+    pack_item_id: int
+    quantity: Decimal  # number of packs to assemble or disassemble
+    warehouse_id: Optional[int] = None
+    location_id: Optional[int] = None
+    lot_number: Optional[str] = None  # for pack output lot
+    component_lots: Optional[List[dict]] = None  # [{component_item_id, lot_id}] for packing
 
 
 class UOMBase(BaseModel):

@@ -30,10 +30,17 @@ class FormulaVersionBase(BaseModel):
     batch_uom_id: Optional[int] = None
     expected_yield_percent: Decimal = Decimal("100")
     notes: Optional[str] = None
+    change_reason: Optional[str] = None
 
 
 class FormulaVersionCreate(FormulaVersionBase):
     ingredients: List[FormulaIngredientCreate]
+
+
+class FormulaVersionRevert(BaseModel):
+    """Request to revert to a prior formula version. Creates a new version
+    that copies the ingredients and settings from the target version."""
+    reason: str
 
 
 class FormulaVersionResponse(FormulaVersionBase):
@@ -42,6 +49,8 @@ class FormulaVersionResponse(FormulaVersionBase):
     version_number: int
     is_current: bool
     effective_date: Optional[datetime] = None
+    change_reason: Optional[str] = None
+    reverted_from_version_id: Optional[int] = None
     ingredients: List[FormulaIngredientResponse] = []
     created_at: datetime
 

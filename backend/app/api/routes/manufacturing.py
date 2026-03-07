@@ -12,7 +12,7 @@ from app.models.manufacturing import (
 from app.models.inventory import Item, Lot, InventoryTransaction, FIFOCostLayer
 from app.schemas.manufacturing import (
     FormulaCreate, FormulaResponse,
-    FormulaVersionCreate, FormulaVersionResponse,
+    FormulaVersionCreate, FormulaVersionResponse, FormulaVersionRevert,
     ProductionOrderCreate, ProductionOrderUpdate, ProductionOrderResponse,
     ProductionConsumptionCreate, ProductionOutputCreate,
 )
@@ -99,6 +99,69 @@ def add_formula_version(
     db.commit()
     db.refresh(version)
     return version
+
+
+@router.get("/formulas/{formula_id}/versions", response_model=List[FormulaVersionResponse])
+def list_formula_versions(
+    formula_id: int,
+    current_user=Depends(require_permission("manufacturing", "read")),
+    db: Session = Depends(get_db),
+):
+    formula = db.query(Formula).filter(Formula.id == formula_id).first()
+    if not formula:
+        raise HTTPException(status_code=404, detail="Formula not found")
+    return db.query(FormulaVersion).filter(
+        FormulaVersion.formula_id == formula_id
+    ).order_by(FormulaVersion.version_number.desc()).all()
+
+
+@router.post("/formulas/{formula_id}/versions/{version_id}/revert", response_model=FormulaVersionResponse)
+def revert_formula_version(
+    formula_id: int, version_id: int, revert_in: FormulaVersionRevert,
+    current_user=Depends(require_permission("manufacturing", "update")),
+    db: Session = Depends(get_db),
+):
+    formula = db.query(Formula).filter(Formula.id == formula_id).first()
+    if not formula:
+        raise HTTPException(status_code=404, detail="Formula not found")
+    target_version = db.query(FormulaVersion).filter(
+        FormulaVersion.id == version_id,
+        FormulaVersion.formula_id == formula_id,
+    ).first()
+    if not target_version:
+        raise HTTPException(status_code=404, detail="Formula version not found")
+    # Deactivate all current versions
+    for v in formula.versions:
+        v.is_current = False
+    max_ver = max((v.version_number for v in formula.versions), default=0)
+    # Create new version copying from target
+    new_version = FormulaVersion(
+        formula_id=formula_id,
+        version_number=max_ver + 1,
+        batch_size=target_version.batch_size,
+        batch_uom_id=target_version.batch_uom_id,
+        expected_yield_percent=target_version.expected_yield_percent,
+        notes=target_version.notes,
+        change_reason=revert_in.reason,
+        reverted_from_version_id=target_version.id,
+        is_current=True,
+    )
+    # Copy ingredients from target version
+    for ing in target_version.ingredients:
+        new_ing = FormulaIngredient(
+            item_id=ing.item_id,
+            sequence=ing.sequence,
+            quantity=ing.quantity,
+            uom_id=ing.uom_id,
+            percentage=ing.percentage,
+            is_active=ing.is_active,
+            notes=ing.notes,
+        )
+        new_version.ingredients.append(new_ing)
+    db.add(new_version)
+    db.commit()
+    db.refresh(new_version)
+    return new_version
 
 
 # --- Production Orders ---

@@ -41,6 +41,45 @@ class Item(Base):
     gl_group = relationship("GLGroup", back_populates="items")
     primary_uom = relationship("UnitOfMeasure")
     lots = relationship("Lot", back_populates="item")
+    aliases = relationship("ItemAlias", back_populates="item", cascade="all, delete-orphan")
+    pack_components = relationship("PackComponent", back_populates="pack_item", foreign_keys="PackComponent.pack_item_id", cascade="all, delete-orphan")
+
+
+class ItemAlias(Base):
+    """Alternate product codes/descriptions that point to an item.
+    Allows internal and external codes (e.g., customer part numbers, supplier codes)."""
+    __tablename__ = "item_aliases"
+    id = Column(Integer, primary_key=True, index=True)
+    item_id = Column(Integer, ForeignKey("items.id", ondelete="CASCADE"), nullable=False)
+    alias_code = Column(String(100), nullable=False, index=True)
+    alias_name = Column(String(255), nullable=True)
+    alias_type = Column(String(50), nullable=True)  # customer, vendor, internal, regulatory, legacy
+    reference_id = Column(Integer, nullable=True)  # optional: customer_id or vendor_id for context
+    notes = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    item = relationship("Item", back_populates="aliases")
+    __table_args__ = (UniqueConstraint("alias_code", "alias_type", name="uq_alias_code_type"),)
+
+
+class PackComponent(Base):
+    """Defines what items and quantities make up a pack/bundle.
+    The pack_item_id is the packed item; component_item_id is a contained item."""
+    __tablename__ = "pack_components"
+    id = Column(Integer, primary_key=True, index=True)
+    pack_item_id = Column(Integer, ForeignKey("items.id", ondelete="CASCADE"), nullable=False)
+    component_item_id = Column(Integer, ForeignKey("items.id"), nullable=False)
+    quantity = Column(Numeric(18, 4), nullable=False)
+    sequence = Column(Integer, default=0)
+    uom_id = Column(Integer, ForeignKey("units_of_measure.id"), nullable=True)
+    notes = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    pack_item = relationship("Item", back_populates="pack_components", foreign_keys=[pack_item_id])
+    component_item = relationship("Item", foreign_keys=[component_item_id])
+    uom = relationship("UnitOfMeasure")
+    __table_args__ = (UniqueConstraint("pack_item_id", "component_item_id", name="uq_pack_component"),)
 
 
 class Warehouse(Base):
