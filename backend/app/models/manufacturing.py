@@ -27,6 +27,7 @@ class FormulaVersion(Base):
     batch_size = Column(Numeric(18, 4), nullable=False)
     batch_uom_id = Column(Integer, ForeignKey("units_of_measure.id"), nullable=True)
     expected_yield_percent = Column(Numeric(8, 4), default=100)
+    instructions = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
     change_reason = Column(Text, nullable=True)  # reason for creating this version
     reverted_from_version_id = Column(Integer, ForeignKey("formula_versions.id"), nullable=True)

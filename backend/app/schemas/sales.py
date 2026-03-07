@@ -10,6 +10,13 @@ class CustomerBase(BaseModel):
     contact_name: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    billing_address_line1: Optional[str] = None
+    billing_address_line2: Optional[str] = None
+    billing_city: Optional[str] = None
+    billing_state: Optional[str] = None
+    billing_postal_code: Optional[str] = None
+    billing_country: str = "US"
+    # Legacy fields
     address_line1: Optional[str] = None
     address_line2: Optional[str] = None
     city: Optional[str] = None
@@ -29,11 +36,14 @@ class CustomerUpdate(BaseModel):
     contact_name: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
-    address_line1: Optional[str] = None
-    city: Optional[str] = None
-    state: Optional[str] = None
-    postal_code: Optional[str] = None
+    billing_address_line1: Optional[str] = None
+    billing_address_line2: Optional[str] = None
+    billing_city: Optional[str] = None
+    billing_state: Optional[str] = None
+    billing_postal_code: Optional[str] = None
+    billing_country: Optional[str] = None
     payment_terms: Optional[str] = None
+    tax_exempt: Optional[bool] = None
     is_active: Optional[bool] = None
 
 
@@ -70,6 +80,8 @@ class SalesOrderLineResponse(SalesOrderLineBase):
 
 class SalesOrderBase(BaseModel):
     customer_id: int
+    ship_to_id: Optional[int] = None
+    ship_via_id: Optional[int] = None
     requested_ship_date: Optional[datetime] = None
     shipping_method: Optional[str] = None
     shipping_address: Optional[str] = None
@@ -82,6 +94,8 @@ class SalesOrderCreate(SalesOrderBase):
 
 class SalesOrderUpdate(BaseModel):
     status: Optional[str] = None
+    ship_to_id: Optional[int] = None
+    ship_via_id: Optional[int] = None
     requested_ship_date: Optional[datetime] = None
     shipping_method: Optional[str] = None
     notes: Optional[str] = None

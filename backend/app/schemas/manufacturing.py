@@ -29,6 +29,7 @@ class FormulaVersionBase(BaseModel):
     batch_size: Decimal
     batch_uom_id: Optional[int] = None
     expected_yield_percent: Decimal = Decimal("100")
+    instructions: Optional[str] = None
     notes: Optional[str] = None
     change_reason: Optional[str] = None
 

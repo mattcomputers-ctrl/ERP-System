@@ -12,6 +12,14 @@ class Customer(Base):
     contact_name = Column(String(255), nullable=True)
     email = Column(String(255), nullable=True)
     phone = Column(String(50), nullable=True)
+    # Billing address
+    billing_address_line1 = Column(String(255), nullable=True)
+    billing_address_line2 = Column(String(255), nullable=True)
+    billing_city = Column(String(100), nullable=True)
+    billing_state = Column(String(100), nullable=True)
+    billing_postal_code = Column(String(20), nullable=True)
+    billing_country = Column(String(100), default="US")
+    # Legacy columns kept for migration compatibility
     address_line1 = Column(String(255), nullable=True)
     address_line2 = Column(String(255), nullable=True)
     city = Column(String(100), nullable=True)
@@ -25,6 +33,27 @@ class Customer(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     sales_orders = relationship("SalesOrder", back_populates="customer")
+    ship_tos = relationship("ShipTo", back_populates="customer", cascade="all, delete-orphan")
+
+
+class ShipTo(Base):
+    __tablename__ = "ship_tos"
+    id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(Integer, ForeignKey("customers.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(255), nullable=False)
+    address_line1 = Column(String(255), nullable=True)
+    address_line2 = Column(String(255), nullable=True)
+    city = Column(String(100), nullable=True)
+    state = Column(String(100), nullable=True)
+    postal_code = Column(String(20), nullable=True)
+    country = Column(String(100), default="US")
+    contact_name = Column(String(255), nullable=True)
+    phone = Column(String(50), nullable=True)
+    is_default = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    customer = relationship("Customer", back_populates="ship_tos")
 
 
 class SalesOrder(Base):
@@ -32,6 +61,8 @@ class SalesOrder(Base):
     id = Column(Integer, primary_key=True, index=True)
     order_number = Column(String(50), unique=True, nullable=False, index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
+    ship_to_id = Column(Integer, ForeignKey("ship_tos.id"), nullable=True)
+    ship_via_id = Column(Integer, ForeignKey("ship_vias.id"), nullable=True)
     order_date = Column(DateTime(timezone=True), server_default=func.now())
     requested_ship_date = Column(DateTime(timezone=True), nullable=True)
     status = Column(String(30), default="draft")  # draft, confirmed, allocated, shipped, invoiced, closed, cancelled
@@ -45,6 +76,8 @@ class SalesOrder(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     customer = relationship("Customer", back_populates="sales_orders")
+    ship_to = relationship("ShipTo")
+    ship_via = relationship("ShipVia")
     lines = relationship("SalesOrderLine", back_populates="sales_order", cascade="all, delete-orphan")
     shipments = relationship("Shipment", back_populates="sales_order")
     invoices = relationship("Invoice", back_populates="sales_order")
@@ -107,6 +140,7 @@ class Invoice(Base):
     subtotal = Column(Numeric(18, 4), default=0)
     tax_amount = Column(Numeric(18, 4), default=0)
     total_amount = Column(Numeric(18, 4), default=0)
+    pdf_path = Column(String(500), nullable=True)
     qb_txn_id = Column(String(200), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     sales_order = relationship("SalesOrder", back_populates="invoices")
@@ -126,3 +160,15 @@ class InvoiceLine(Base):
     gl_group_id = Column(Integer, ForeignKey("gl_groups.id"), nullable=True)
     invoice = relationship("Invoice", back_populates="lines")
     item = relationship("Item")
+
+
+class PackingList(Base):
+    __tablename__ = "packing_lists"
+    id = Column(Integer, primary_key=True, index=True)
+    packing_list_number = Column(String(50), unique=True, nullable=False)
+    sales_order_id = Column(Integer, ForeignKey("sales_orders.id"), nullable=False)
+    shipment_id = Column(Integer, ForeignKey("shipments.id"), nullable=True)
+    created_date = Column(DateTime(timezone=True), server_default=func.now())
+    pdf_path = Column(String(500), nullable=True)
+    sales_order = relationship("SalesOrder")
+    shipment = relationship("Shipment")

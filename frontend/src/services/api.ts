@@ -85,17 +85,15 @@ export const inventoryAPI = {
   listUOMs: () => api.get('/inventory/uoms'),
   createUOM: (data: any) => api.post('/inventory/uoms', data),
   getValuation: (itemId?: number) => api.get('/inventory/valuation', { params: { item_id: itemId } }),
-  // Aliases
   listAliases: (itemId: number) => api.get(`/inventory/items/${itemId}/aliases`),
   createAlias: (itemId: number, data: any) => api.post(`/inventory/items/${itemId}/aliases`, data),
-  updateAlias: (itemId: number, aliasId: number, data: any) => api.put(`/inventory/items/${itemId}/aliases/${aliasId}`, data),
-  deleteAlias: (itemId: number, aliasId: number) => api.delete(`/inventory/items/${itemId}/aliases/${aliasId}`),
-  lookupByAlias: (code: string, type?: string) => api.get('/inventory/alias-lookup', { params: { alias_code: code, alias_type: type } }),
-  // Pack Components
+  updateAlias: (aliasId: number, data: any) => api.put(`/inventory/aliases/${aliasId}`, data),
+  deleteAlias: (_itemId: number, aliasId: number) => api.delete(`/inventory/aliases/${aliasId}`),
+  lookupByAlias: (code: string, type?: string) => api.get('/inventory/aliases/lookup', { params: { alias_code: code, alias_type: type } }),
   listPackComponents: (itemId: number) => api.get(`/inventory/items/${itemId}/pack-components`),
   setPackComponents: (itemId: number, data: any) => api.put(`/inventory/items/${itemId}/pack-components`, data),
   addPackComponent: (itemId: number, data: any) => api.post(`/inventory/items/${itemId}/pack-components`, data),
-  deletePackComponent: (itemId: number, componentId: number) => api.delete(`/inventory/items/${itemId}/pack-components/${componentId}`),
+  deletePackComponent: (_itemId: number, componentId: number) => api.delete(`/inventory/pack-components/${componentId}`),
   assemblePack: (data: any) => api.post('/inventory/packs/assemble', data),
   disassemblePack: (data: any) => api.post('/inventory/packs/disassemble', data),
 };
@@ -110,8 +108,12 @@ export const salesAPI = {
   createOrder: (data: any) => api.post('/sales/orders', data),
   getOrder: (id: number) => api.get(`/sales/orders/${id}`),
   updateOrder: (id: number, data: any) => api.put(`/sales/orders/${id}`, data),
+  getPickList: (orderId: number) => api.get(`/sales/orders/${orderId}/pick-list`),
   createShipment: (data: any) => api.post('/sales/shipments', data),
   createInvoice: (orderId: number) => api.post(`/sales/orders/${orderId}/invoice`),
+  createPackingList: (orderId: number) => api.post(`/sales/orders/${orderId}/packing-list`),
+  getInvoice: (invoiceId: number) => api.get(`/sales/invoices/${invoiceId}`),
+  listInvoices: (params?: any) => api.get('/sales/invoices', { params }),
 };
 
 // --- Purchasing ---
@@ -171,4 +173,23 @@ export const reportsAPI = {
   salesByGLGroup: () => api.get('/reports/sales/by-gl-group'),
   purchasesByVendor: () => api.get('/reports/purchasing/by-vendor'),
   exportInventoryCSV: () => api.get('/reports/export/inventory-csv', { responseType: 'blob' }),
+};
+
+// --- Settings ---
+export const settingsAPI = {
+  listShipVias: () => api.get('/settings/ship-vias'),
+  createShipVia: (data: any) => api.post('/settings/ship-vias', data),
+  updateShipVia: (id: number, data: any) => api.put(`/settings/ship-vias/${id}`, data),
+  deleteShipVia: (id: number) => api.delete(`/settings/ship-vias/${id}`),
+  getBranding: () => api.get('/settings/branding'),
+  updateBranding: (data: any) => api.put('/settings/branding', data),
+  listPriceLists: (params?: any) => api.get('/settings/price-lists', { params }),
+  createPriceList: (data: any) => api.post('/settings/price-lists', data),
+  updatePriceList: (id: number, data: any) => api.put(`/settings/price-lists/${id}`, data),
+  listPriceHistory: (params?: any) => api.get('/settings/price-history', { params }),
+  listShipTos: (params?: any) => api.get('/settings/ship-tos', { params }),
+  createShipTo: (data: any) => api.post('/settings/ship-tos', data),
+  getShipTo: (id: number) => api.get(`/settings/ship-tos/${id}`),
+  updateShipTo: (id: number, data: any) => api.put(`/settings/ship-tos/${id}`, data),
+  deleteShipTo: (id: number) => api.delete(`/settings/ship-tos/${id}`),
 };

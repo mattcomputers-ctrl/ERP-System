@@ -49,6 +49,7 @@ def create_formula(
         batch_size=f_in.initial_version.batch_size,
         batch_uom_id=f_in.initial_version.batch_uom_id,
         expected_yield_percent=f_in.initial_version.expected_yield_percent,
+        instructions=f_in.initial_version.instructions,
         notes=f_in.initial_version.notes,
         is_current=True,
     )
@@ -89,6 +90,7 @@ def add_formula_version(
         batch_size=v_in.batch_size,
         batch_uom_id=v_in.batch_uom_id,
         expected_yield_percent=v_in.expected_yield_percent,
+        instructions=v_in.instructions,
         notes=v_in.notes,
         is_current=True,
     )
@@ -141,6 +143,7 @@ def revert_formula_version(
         batch_size=target_version.batch_size,
         batch_uom_id=target_version.batch_uom_id,
         expected_yield_percent=target_version.expected_yield_percent,
+        instructions=target_version.instructions,
         notes=target_version.notes,
         change_reason=revert_in.reason,
         reverted_from_version_id=target_version.id,

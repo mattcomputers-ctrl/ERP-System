@@ -81,6 +81,31 @@ export interface Customer {
   contact_name: string | null;
   email: string | null;
   phone: string | null;
+  billing_address_line1: string | null;
+  billing_address_line2: string | null;
+  billing_city: string | null;
+  billing_state: string | null;
+  billing_postal_code: string | null;
+  billing_country: string;
+  payment_terms: string | null;
+  tax_exempt: boolean;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface ShipTo {
+  id: number;
+  customer_id: number;
+  name: string;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  state: string | null;
+  postal_code: string | null;
+  country: string;
+  contact_name: string | null;
+  phone: string | null;
+  is_default: boolean;
   is_active: boolean;
   created_at: string;
 }
@@ -92,6 +117,29 @@ export interface Vendor {
   contact_name: string | null;
   email: string | null;
   phone: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  state: string | null;
+  postal_code: string | null;
+  country: string;
+  remit_address_line1: string | null;
+  remit_address_line2: string | null;
+  remit_city: string | null;
+  remit_state: string | null;
+  remit_postal_code: string | null;
+  remit_country: string;
+  payment_terms: string | null;
+  default_ship_via_id: number | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface ShipVia {
+  id: number;
+  name: string;
+  carrier: string | null;
+  account_number: string | null;
   is_active: boolean;
   created_at: string;
 }
@@ -100,12 +148,15 @@ export interface SalesOrder {
   id: number;
   order_number: string;
   customer_id: number;
+  ship_to_id: number | null;
+  ship_via_id: number | null;
   order_date: string;
   requested_ship_date: string | null;
   status: string;
   subtotal: number;
   tax_amount: number;
   total_amount: number;
+  notes: string | null;
   lines: SalesOrderLine[];
   created_at: string;
 }
@@ -125,11 +176,13 @@ export interface PurchaseOrder {
   id: number;
   po_number: string;
   vendor_id: number;
+  ship_via_id: number | null;
   order_date: string;
   expected_delivery_date: string | null;
   status: string;
   subtotal: number;
   total_amount: number;
+  notes: string | null;
   lines: PurchaseOrderLine[];
   created_at: string;
 }
@@ -161,6 +214,7 @@ export interface FormulaVersion {
   version_number: number;
   batch_size: number;
   expected_yield_percent: number;
+  instructions: string | null;
   is_current: boolean;
   change_reason: string | null;
   reverted_from_version_id: number | null;
@@ -234,4 +288,44 @@ export interface UserGroup {
   id: number;
   name: string;
   description: string | null;
+}
+
+export interface PriceList {
+  id: number;
+  item_id: number;
+  price_type: string;
+  entity_id: number;
+  unit_price: number;
+  min_quantity: number;
+  effective_date: string;
+  expiration_date: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface PriceHistory {
+  id: number;
+  item_id: number;
+  price_type: string;
+  entity_id: number;
+  old_price: number | null;
+  new_price: number;
+  changed_at: string;
+}
+
+export interface Branding {
+  id: number;
+  company_name: string;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  state: string | null;
+  postal_code: string | null;
+  country: string;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  logo_path: string | null;
+  primary_color: string;
+  updated_at: string;
 }

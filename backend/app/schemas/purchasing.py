@@ -10,13 +10,22 @@ class VendorBase(BaseModel):
     contact_name: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    # Office address
     address_line1: Optional[str] = None
     address_line2: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
     postal_code: Optional[str] = None
     country: str = "US"
+    # Remit-to address
+    remit_address_line1: Optional[str] = None
+    remit_address_line2: Optional[str] = None
+    remit_city: Optional[str] = None
+    remit_state: Optional[str] = None
+    remit_postal_code: Optional[str] = None
+    remit_country: str = "US"
     payment_terms: Optional[str] = None
+    default_ship_via_id: Optional[int] = None
 
 
 class VendorCreate(VendorBase):
@@ -28,6 +37,20 @@ class VendorUpdate(BaseModel):
     contact_name: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    address_line1: Optional[str] = None
+    address_line2: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    postal_code: Optional[str] = None
+    country: Optional[str] = None
+    remit_address_line1: Optional[str] = None
+    remit_address_line2: Optional[str] = None
+    remit_city: Optional[str] = None
+    remit_state: Optional[str] = None
+    remit_postal_code: Optional[str] = None
+    remit_country: Optional[str] = None
+    payment_terms: Optional[str] = None
+    default_ship_via_id: Optional[int] = None
     is_active: Optional[bool] = None
 
 
@@ -62,6 +85,7 @@ class POLineResponse(POLineBase):
 
 class PurchaseOrderBase(BaseModel):
     vendor_id: int
+    ship_via_id: Optional[int] = None
     expected_delivery_date: Optional[datetime] = None
     notes: Optional[str] = None
 
@@ -72,6 +96,7 @@ class PurchaseOrderCreate(PurchaseOrderBase):
 
 class PurchaseOrderUpdate(BaseModel):
     status: Optional[str] = None
+    ship_via_id: Optional[int] = None
     expected_delivery_date: Optional[datetime] = None
     notes: Optional[str] = None
 
