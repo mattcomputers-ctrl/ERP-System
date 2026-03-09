@@ -43,10 +43,25 @@ export interface Item {
   description: string | null;
   item_type: string;
   gl_group_id: number | null;
+  primary_uom_id: number | null;
   is_active: boolean;
   is_lot_tracked: boolean;
   reorder_level: number | null;
   safety_stock: number | null;
+  tracking_type: string;
+  max_shelf_life_days: number | null;
+  does_not_expire: boolean;
+  target_min_qty: number | null;
+  master_recipe_id: number | null;
+  current_fifo_cost: number | null;
+  replacement_cost: number | null;
+  lead_time_days: number | null;
+  preferred_supplier_id: number | null;
+  specific_gravity: number | null;
+  density_lb_gal: number | null;
+  voc_percent: number | null;
+  boiling_point: string | null;
+  flash_point: string | null;
   created_at: string;
 }
 
@@ -386,4 +401,79 @@ export interface QBPendingSync {
   invoices: number;
   purchase_orders: number;
   total: number;
+}
+
+// --- Item Active Recipes ---
+
+export interface ItemActiveRecipe {
+  id: number;
+  item_id: number;
+  formula_id: number;
+  is_master: boolean;
+  created_at: string;
+}
+
+// --- QC Test Definitions (Settings) ---
+
+export interface QCTestDefinition {
+  id: number;
+  name: string;
+  test_type: string;
+  method: string | null;
+  uom: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+// --- Item QC Test Assignments ---
+
+export interface ItemQCTestAssignment {
+  id: number;
+  item_id: number;
+  qc_test_definition_id: number;
+  target_value: number | null;
+  min_value: number | null;
+  max_value: number | null;
+  created_at: string;
+}
+
+// --- Pack Extension Definitions (Settings) ---
+
+export interface PackExtensionMaterial {
+  id: number;
+  pack_extension_id: number;
+  material_item_id: number;
+  quantity_per_lb: number;
+  uom_id: number | null;
+  created_at: string;
+}
+
+export interface PackExtensionDefinition {
+  id: number;
+  code: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  materials: PackExtensionMaterial[];
+  created_at: string;
+}
+
+// --- Item Pack Extension Assignments ---
+
+export interface ItemPackExtension {
+  id: number;
+  item_id: number;
+  pack_extension_id: number;
+  desired_fill_amount: number | null;
+  fill_uom_id: number | null;
+  created_at: string;
+}
+
+// --- UOM ---
+
+export interface UOM {
+  id: number;
+  name: string;
+  abbreviation: string;
+  category: string;
 }

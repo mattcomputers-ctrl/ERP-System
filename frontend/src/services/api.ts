@@ -96,6 +96,29 @@ export const inventoryAPI = {
   deletePackComponent: (_itemId: number, componentId: number) => api.delete(`/inventory/pack-components/${componentId}`),
   assemblePack: (data: any) => api.post('/inventory/packs/assemble', data),
   disassemblePack: (data: any) => api.post('/inventory/packs/disassemble', data),
+  // Active Recipes
+  listActiveRecipes: (itemId: number) => api.get(`/inventory/items/${itemId}/active-recipes`),
+  setActiveRecipes: (itemId: number, recipes: any[]) => api.put(`/inventory/items/${itemId}/active-recipes`, recipes),
+  // QC Test Definitions (Settings)
+  listQCTestDefinitions: () => api.get('/inventory/qc-test-definitions'),
+  createQCTestDefinition: (data: any) => api.post('/inventory/qc-test-definitions', data),
+  updateQCTestDefinition: (id: number, data: any) => api.put(`/inventory/qc-test-definitions/${id}`, data),
+  deleteQCTestDefinition: (id: number) => api.delete(`/inventory/qc-test-definitions/${id}`),
+  // Item QC Test Assignments
+  listItemQCTests: (itemId: number) => api.get(`/inventory/items/${itemId}/qc-tests`),
+  addItemQCTest: (itemId: number, data: any) => api.post(`/inventory/items/${itemId}/qc-tests`, data),
+  updateItemQCTest: (itemId: number, assignmentId: number, data: any) => api.put(`/inventory/items/${itemId}/qc-tests/${assignmentId}`, data),
+  removeItemQCTest: (itemId: number, assignmentId: number) => api.delete(`/inventory/items/${itemId}/qc-tests/${assignmentId}`),
+  // Pack Extension Definitions (Settings)
+  listPackExtensionDefinitions: () => api.get('/inventory/pack-extension-definitions'),
+  createPackExtensionDefinition: (data: any) => api.post('/inventory/pack-extension-definitions', data),
+  updatePackExtensionDefinition: (id: number, data: any) => api.put(`/inventory/pack-extension-definitions/${id}`, data),
+  deletePackExtensionDefinition: (id: number) => api.delete(`/inventory/pack-extension-definitions/${id}`),
+  // Item Pack Extensions
+  listItemPackExtensions: (itemId: number) => api.get(`/inventory/items/${itemId}/pack-extensions`),
+  addItemPackExtension: (itemId: number, data: any) => api.post(`/inventory/items/${itemId}/pack-extensions`, data),
+  updateItemPackExtension: (itemId: number, ipeId: number, data: any) => api.put(`/inventory/items/${itemId}/pack-extensions/${ipeId}`, data),
+  removeItemPackExtension: (itemId: number, ipeId: number) => api.delete(`/inventory/items/${itemId}/pack-extensions/${ipeId}`),
 };
 
 // --- Sales ---

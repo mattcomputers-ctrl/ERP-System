@@ -14,6 +14,19 @@ class ItemBase(BaseModel):
     reorder_level: Optional[Decimal] = None
     safety_stock: Optional[Decimal] = None
     is_lot_tracked: bool = True
+    tracking_type: str = "inventory_lot"
+    max_shelf_life_days: Optional[int] = None
+    does_not_expire: bool = False
+    target_min_qty: Optional[Decimal] = None
+    master_recipe_id: Optional[int] = None
+    replacement_cost: Optional[Decimal] = None
+    lead_time_days: Optional[int] = None
+    preferred_supplier_id: Optional[int] = None
+    specific_gravity: Optional[Decimal] = None
+    density_lb_gal: Optional[Decimal] = None
+    voc_percent: Optional[Decimal] = None
+    boiling_point: Optional[str] = None
+    flash_point: Optional[str] = None
 
 
 class ItemCreate(ItemBase):
@@ -30,11 +43,25 @@ class ItemUpdate(BaseModel):
     safety_stock: Optional[Decimal] = None
     is_lot_tracked: Optional[bool] = None
     is_active: Optional[bool] = None
+    tracking_type: Optional[str] = None
+    max_shelf_life_days: Optional[int] = None
+    does_not_expire: Optional[bool] = None
+    target_min_qty: Optional[Decimal] = None
+    master_recipe_id: Optional[int] = None
+    replacement_cost: Optional[Decimal] = None
+    lead_time_days: Optional[int] = None
+    preferred_supplier_id: Optional[int] = None
+    specific_gravity: Optional[Decimal] = None
+    density_lb_gal: Optional[Decimal] = None
+    voc_percent: Optional[Decimal] = None
+    boiling_point: Optional[str] = None
+    flash_point: Optional[str] = None
 
 
 class ItemResponse(ItemBase):
     id: int
     is_active: bool
+    current_fifo_cost: Optional[Decimal] = None
     created_at: datetime
 
     class Config:
@@ -226,6 +253,149 @@ class UOMCreate(UOMBase):
 
 class UOMResponse(UOMBase):
     id: int
+
+    class Config:
+        from_attributes = True
+
+
+# --- Item Active Recipes ---
+
+class ItemActiveRecipeCreate(BaseModel):
+    formula_id: int
+    is_master: bool = False
+
+
+class ItemActiveRecipeResponse(BaseModel):
+    id: int
+    item_id: int
+    formula_id: int
+    is_master: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# --- QC Test Definitions (Settings) ---
+
+class QCTestDefinitionBase(BaseModel):
+    name: str
+    test_type: str  # pass_fail, range
+    method: Optional[str] = None
+    uom: Optional[str] = None
+
+
+class QCTestDefinitionCreate(QCTestDefinitionBase):
+    pass
+
+
+class QCTestDefinitionUpdate(BaseModel):
+    name: Optional[str] = None
+    test_type: Optional[str] = None
+    method: Optional[str] = None
+    uom: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class QCTestDefinitionResponse(QCTestDefinitionBase):
+    id: int
+    is_active: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# --- Item QC Test Assignments ---
+
+class ItemQCTestCreate(BaseModel):
+    qc_test_definition_id: int
+    target_value: Optional[Decimal] = None
+    min_value: Optional[Decimal] = None
+    max_value: Optional[Decimal] = None
+
+
+class ItemQCTestResponse(BaseModel):
+    id: int
+    item_id: int
+    qc_test_definition_id: int
+    target_value: Optional[Decimal] = None
+    min_value: Optional[Decimal] = None
+    max_value: Optional[Decimal] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# --- Pack Extension Definitions (Settings) ---
+
+class PackExtensionMaterialBase(BaseModel):
+    material_item_id: int
+    quantity_per_lb: Decimal
+    uom_id: Optional[int] = None
+
+
+class PackExtensionMaterialCreate(PackExtensionMaterialBase):
+    pass
+
+
+class PackExtensionMaterialResponse(PackExtensionMaterialBase):
+    id: int
+    pack_extension_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PackExtensionDefinitionBase(BaseModel):
+    code: str
+    name: str
+    description: Optional[str] = None
+
+
+class PackExtensionDefinitionCreate(PackExtensionDefinitionBase):
+    materials: List[PackExtensionMaterialCreate] = []
+
+
+class PackExtensionDefinitionUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+    materials: Optional[List[PackExtensionMaterialCreate]] = None
+
+
+class PackExtensionDefinitionResponse(PackExtensionDefinitionBase):
+    id: int
+    is_active: bool
+    materials: List[PackExtensionMaterialResponse] = []
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# --- Item Pack Extension Assignments ---
+
+class ItemPackExtensionCreate(BaseModel):
+    pack_extension_id: int
+    desired_fill_amount: Optional[Decimal] = None
+    fill_uom_id: Optional[int] = None
+
+
+class ItemPackExtensionUpdate(BaseModel):
+    desired_fill_amount: Optional[Decimal] = None
+    fill_uom_id: Optional[int] = None
+
+
+class ItemPackExtensionResponse(BaseModel):
+    id: int
+    item_id: int
+    pack_extension_id: int
+    desired_fill_amount: Optional[Decimal] = None
+    fill_uom_id: Optional[int] = None
+    created_at: datetime
 
     class Config:
         from_attributes = True

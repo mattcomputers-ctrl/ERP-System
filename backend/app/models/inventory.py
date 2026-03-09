@@ -36,13 +36,34 @@ class Item(Base):
     safety_stock = Column(Numeric(18, 4), nullable=True)
     is_lot_tracked = Column(Boolean, default=True)
     is_active = Column(Boolean, default=True)
+    # General tab fields
+    tracking_type = Column(String(50), default="inventory_lot")  # inventory_lot, inventory_no_lot, not_inventoried
+    max_shelf_life_days = Column(Integer, nullable=True)
+    does_not_expire = Column(Boolean, default=False)
+    target_min_qty = Column(Numeric(18, 4), nullable=True)
+    master_recipe_id = Column(Integer, ForeignKey("formulas.id"), nullable=True)
+    current_fifo_cost = Column(Numeric(18, 6), nullable=True)
+    replacement_cost = Column(Numeric(18, 6), nullable=True)
+    lead_time_days = Column(Integer, nullable=True)
+    preferred_supplier_id = Column(Integer, ForeignKey("vendors.id"), nullable=True)
+    # Technical/Safety tab fields
+    specific_gravity = Column(Numeric(12, 6), nullable=True)
+    density_lb_gal = Column(Numeric(12, 6), nullable=True)
+    voc_percent = Column(Numeric(8, 4), nullable=True)
+    boiling_point = Column(String(100), nullable=True)
+    flash_point = Column(String(100), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     gl_group = relationship("GLGroup", back_populates="items")
     primary_uom = relationship("UnitOfMeasure")
+    master_recipe = relationship("Formula", foreign_keys=[master_recipe_id])
+    preferred_supplier = relationship("Vendor", foreign_keys=[preferred_supplier_id])
     lots = relationship("Lot", back_populates="item")
     aliases = relationship("ItemAlias", back_populates="item", cascade="all, delete-orphan")
     pack_components = relationship("PackComponent", back_populates="pack_item", foreign_keys="PackComponent.pack_item_id", cascade="all, delete-orphan")
+    active_recipes = relationship("ItemActiveRecipe", back_populates="item", cascade="all, delete-orphan")
+    qc_test_assignments = relationship("ItemQCTest", back_populates="item", cascade="all, delete-orphan")
+    item_pack_extensions = relationship("ItemPackExtension", back_populates="item", cascade="all, delete-orphan")
 
 
 class ItemAlias(Base):
@@ -160,3 +181,87 @@ class InventoryTransaction(Base):
     item = relationship("Item")
     lot = relationship("Lot")
     gl_group = relationship("GLGroup")
+
+
+class ItemActiveRecipe(Base):
+    """Links active recipes (formulas) to an item. Multiple recipes can be active."""
+    __tablename__ = "item_active_recipes"
+    id = Column(Integer, primary_key=True, index=True)
+    item_id = Column(Integer, ForeignKey("items.id", ondelete="CASCADE"), nullable=False)
+    formula_id = Column(Integer, ForeignKey("formulas.id"), nullable=False)
+    is_master = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    item = relationship("Item", back_populates="active_recipes")
+    formula = relationship("Formula")
+    __table_args__ = (UniqueConstraint("item_id", "formula_id", name="uq_item_active_recipe"),)
+
+
+class QCTestDefinition(Base):
+    """Global QC test definitions configured in settings. Either pass/fail or range-based."""
+    __tablename__ = "qc_test_definitions"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False)
+    test_type = Column(String(20), nullable=False)  # pass_fail, range
+    method = Column(String(200), nullable=True)
+    uom = Column(String(50), nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class ItemQCTest(Base):
+    """Assignment of a QC test definition to an item with target specs."""
+    __tablename__ = "item_qc_tests"
+    id = Column(Integer, primary_key=True, index=True)
+    item_id = Column(Integer, ForeignKey("items.id", ondelete="CASCADE"), nullable=False)
+    qc_test_definition_id = Column(Integer, ForeignKey("qc_test_definitions.id"), nullable=False)
+    target_value = Column(Numeric(18, 6), nullable=True)
+    min_value = Column(Numeric(18, 6), nullable=True)
+    max_value = Column(Numeric(18, 6), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    item = relationship("Item", back_populates="qc_test_assignments")
+    qc_test_definition = relationship("QCTestDefinition")
+    __table_args__ = (UniqueConstraint("item_id", "qc_test_definition_id", name="uq_item_qc_test"),)
+
+
+class PackExtensionDefinition(Base):
+    """Pack extension definitions configured in settings (e.g., '-50' = 5LB can)."""
+    __tablename__ = "pack_extension_definitions"
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(50), unique=True, nullable=False)
+    name = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    materials = relationship("PackExtensionMaterial", back_populates="pack_extension", cascade="all, delete-orphan")
+
+
+class PackExtensionMaterial(Base):
+    """Packaging materials consumed per pound of product for a pack extension."""
+    __tablename__ = "pack_extension_materials"
+    id = Column(Integer, primary_key=True, index=True)
+    pack_extension_id = Column(Integer, ForeignKey("pack_extension_definitions.id", ondelete="CASCADE"), nullable=False)
+    material_item_id = Column(Integer, ForeignKey("items.id"), nullable=False)
+    quantity_per_lb = Column(Numeric(18, 6), nullable=False)  # e.g., 0.2 ea per 1 lb
+    uom_id = Column(Integer, ForeignKey("units_of_measure.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    pack_extension = relationship("PackExtensionDefinition", back_populates="materials")
+    material_item = relationship("Item")
+    uom = relationship("UnitOfMeasure")
+    __table_args__ = (UniqueConstraint("pack_extension_id", "material_item_id", name="uq_pack_ext_material"),)
+
+
+class ItemPackExtension(Base):
+    """Assignment of a pack extension to an item with desired fill amount."""
+    __tablename__ = "item_pack_extensions"
+    id = Column(Integer, primary_key=True, index=True)
+    item_id = Column(Integer, ForeignKey("items.id", ondelete="CASCADE"), nullable=False)
+    pack_extension_id = Column(Integer, ForeignKey("pack_extension_definitions.id"), nullable=False)
+    desired_fill_amount = Column(Numeric(18, 4), nullable=True)
+    fill_uom_id = Column(Integer, ForeignKey("units_of_measure.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    item = relationship("Item", back_populates="item_pack_extensions")
+    pack_extension = relationship("PackExtensionDefinition")
+    fill_uom = relationship("UnitOfMeasure")
+    __table_args__ = (UniqueConstraint("item_id", "pack_extension_id", name="uq_item_pack_extension"),)

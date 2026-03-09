@@ -4,7 +4,12 @@ from typing import List, Optional
 from decimal import Decimal
 from app.core.database import get_db
 from app.core.security import get_current_user, require_permission
-from app.models.inventory import Item, ItemAlias, PackComponent, Lot, Warehouse, Location, InventoryTransaction, FIFOCostLayer, UnitOfMeasure
+from app.models.inventory import (
+    Item, ItemAlias, PackComponent, Lot, Warehouse, Location,
+    InventoryTransaction, FIFOCostLayer, UnitOfMeasure,
+    ItemActiveRecipe, QCTestDefinition, ItemQCTest,
+    PackExtensionDefinition, PackExtensionMaterial, ItemPackExtension,
+)
 from app.schemas.inventory import (
     ItemCreate, ItemUpdate, ItemResponse,
     WarehouseCreate, WarehouseResponse,
@@ -14,6 +19,11 @@ from app.schemas.inventory import (
     UOMCreate, UOMResponse,
     ItemAliasCreate, ItemAliasUpdate, ItemAliasResponse,
     PackComponentCreate, PackComponentResponse, PackDefinitionCreate, PackOperationRequest,
+    ItemActiveRecipeCreate, ItemActiveRecipeResponse,
+    QCTestDefinitionCreate, QCTestDefinitionUpdate, QCTestDefinitionResponse,
+    ItemQCTestCreate, ItemQCTestResponse,
+    PackExtensionDefinitionCreate, PackExtensionDefinitionUpdate, PackExtensionDefinitionResponse,
+    ItemPackExtensionCreate, ItemPackExtensionUpdate, ItemPackExtensionResponse,
 )
 
 router = APIRouter(prefix="/inventory", tags=["Inventory"])
@@ -369,7 +379,7 @@ def lookup_by_alias(
     return results
 
 
-# --- Pack Extensions ---
+# --- Pack Components ---
 
 @router.get("/items/{item_id}/pack-components", response_model=List[PackComponentResponse])
 def list_pack_components(
@@ -635,3 +645,314 @@ def disassemble_pack(
         created_lots.append({"item_id": comp.component_item_id, "lot_number": lot_num, "quantity": float(output_qty)})
     db.commit()
     return {"detail": "Pack disassembled", "component_lots": created_lots}
+
+
+# --- Item Active Recipes ---
+
+@router.get("/items/{item_id}/active-recipes", response_model=List[ItemActiveRecipeResponse])
+def list_active_recipes(
+    item_id: int,
+    current_user=Depends(require_permission("inventory", "read")),
+    db: Session = Depends(get_db),
+):
+    item = db.query(Item).filter(Item.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return db.query(ItemActiveRecipe).filter(ItemActiveRecipe.item_id == item_id).all()
+
+
+@router.put("/items/{item_id}/active-recipes")
+def set_active_recipes(
+    item_id: int, recipes: List[ItemActiveRecipeCreate],
+    current_user=Depends(require_permission("inventory", "update")),
+    db: Session = Depends(get_db),
+):
+    """Set the active recipes for an item. Exactly one must be master."""
+    item = db.query(Item).filter(Item.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    if recipes:
+        master_count = sum(1 for r in recipes if r.is_master)
+        if master_count != 1:
+            raise HTTPException(status_code=400, detail="Exactly one recipe must be designated as master")
+    # Remove existing
+    db.query(ItemActiveRecipe).filter(ItemActiveRecipe.item_id == item_id).delete()
+    created = []
+    for r in recipes:
+        ar = ItemActiveRecipe(item_id=item_id, formula_id=r.formula_id, is_master=r.is_master)
+        db.add(ar)
+        created.append(ar)
+        if r.is_master:
+            item.master_recipe_id = r.formula_id
+    if not recipes:
+        item.master_recipe_id = None
+    db.commit()
+    return {"detail": f"{len(created)} active recipes set"}
+
+
+# --- Item QC Test Assignments ---
+
+@router.get("/items/{item_id}/qc-tests", response_model=List[ItemQCTestResponse])
+def list_item_qc_tests(
+    item_id: int,
+    current_user=Depends(require_permission("inventory", "read")),
+    db: Session = Depends(get_db),
+):
+    item = db.query(Item).filter(Item.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return db.query(ItemQCTest).filter(ItemQCTest.item_id == item_id).all()
+
+
+@router.post("/items/{item_id}/qc-tests", response_model=ItemQCTestResponse, status_code=status.HTTP_201_CREATED)
+def add_item_qc_test(
+    item_id: int, test_in: ItemQCTestCreate,
+    current_user=Depends(require_permission("inventory", "update")),
+    db: Session = Depends(get_db),
+):
+    item = db.query(Item).filter(Item.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    existing = db.query(ItemQCTest).filter(
+        ItemQCTest.item_id == item_id,
+        ItemQCTest.qc_test_definition_id == test_in.qc_test_definition_id,
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="QC test already assigned to this item")
+    assignment = ItemQCTest(item_id=item_id, **test_in.model_dump())
+    db.add(assignment)
+    db.commit()
+    db.refresh(assignment)
+    return assignment
+
+
+@router.put("/items/{item_id}/qc-tests/{assignment_id}", response_model=ItemQCTestResponse)
+def update_item_qc_test(
+    item_id: int, assignment_id: int, test_in: ItemQCTestCreate,
+    current_user=Depends(require_permission("inventory", "update")),
+    db: Session = Depends(get_db),
+):
+    assignment = db.query(ItemQCTest).filter(
+        ItemQCTest.id == assignment_id, ItemQCTest.item_id == item_id
+    ).first()
+    if not assignment:
+        raise HTTPException(status_code=404, detail="QC test assignment not found")
+    for key, value in test_in.model_dump(exclude_unset=True).items():
+        setattr(assignment, key, value)
+    db.commit()
+    db.refresh(assignment)
+    return assignment
+
+
+@router.delete("/items/{item_id}/qc-tests/{assignment_id}")
+def remove_item_qc_test(
+    item_id: int, assignment_id: int,
+    current_user=Depends(require_permission("inventory", "delete")),
+    db: Session = Depends(get_db),
+):
+    assignment = db.query(ItemQCTest).filter(
+        ItemQCTest.id == assignment_id, ItemQCTest.item_id == item_id
+    ).first()
+    if not assignment:
+        raise HTTPException(status_code=404, detail="QC test assignment not found")
+    db.delete(assignment)
+    db.commit()
+    return {"detail": "QC test removed from item"}
+
+
+# --- QC Test Definitions (Settings) ---
+
+@router.get("/qc-test-definitions", response_model=List[QCTestDefinitionResponse])
+def list_qc_test_definitions(
+    current_user=Depends(require_permission("settings", "read")),
+    db: Session = Depends(get_db),
+):
+    return db.query(QCTestDefinition).filter(QCTestDefinition.is_active == True).all()
+
+
+@router.get("/qc-test-definitions/all", response_model=List[QCTestDefinitionResponse])
+def list_all_qc_test_definitions(
+    current_user=Depends(require_permission("settings", "read")),
+    db: Session = Depends(get_db),
+):
+    return db.query(QCTestDefinition).all()
+
+
+@router.post("/qc-test-definitions", response_model=QCTestDefinitionResponse, status_code=status.HTTP_201_CREATED)
+def create_qc_test_definition(
+    td_in: QCTestDefinitionCreate,
+    current_user=Depends(require_permission("settings", "create")),
+    db: Session = Depends(get_db),
+):
+    td = QCTestDefinition(**td_in.model_dump())
+    db.add(td)
+    db.commit()
+    db.refresh(td)
+    return td
+
+
+@router.put("/qc-test-definitions/{td_id}", response_model=QCTestDefinitionResponse)
+def update_qc_test_definition(
+    td_id: int, td_in: QCTestDefinitionUpdate,
+    current_user=Depends(require_permission("settings", "update")),
+    db: Session = Depends(get_db),
+):
+    td = db.query(QCTestDefinition).filter(QCTestDefinition.id == td_id).first()
+    if not td:
+        raise HTTPException(status_code=404, detail="QC test definition not found")
+    for k, v in td_in.model_dump(exclude_unset=True).items():
+        setattr(td, k, v)
+    db.commit()
+    db.refresh(td)
+    return td
+
+
+@router.delete("/qc-test-definitions/{td_id}")
+def delete_qc_test_definition(
+    td_id: int,
+    current_user=Depends(require_permission("settings", "delete")),
+    db: Session = Depends(get_db),
+):
+    td = db.query(QCTestDefinition).filter(QCTestDefinition.id == td_id).first()
+    if not td:
+        raise HTTPException(status_code=404, detail="QC test definition not found")
+    td.is_active = False
+    db.commit()
+    return {"detail": "QC test definition deactivated"}
+
+
+# --- Pack Extension Definitions (Settings) ---
+
+@router.get("/pack-extension-definitions", response_model=List[PackExtensionDefinitionResponse])
+def list_pack_extension_definitions(
+    current_user=Depends(require_permission("settings", "read")),
+    db: Session = Depends(get_db),
+):
+    return db.query(PackExtensionDefinition).filter(PackExtensionDefinition.is_active == True).all()
+
+
+@router.post("/pack-extension-definitions", response_model=PackExtensionDefinitionResponse, status_code=status.HTTP_201_CREATED)
+def create_pack_extension_definition(
+    pe_in: PackExtensionDefinitionCreate,
+    current_user=Depends(require_permission("settings", "create")),
+    db: Session = Depends(get_db),
+):
+    if db.query(PackExtensionDefinition).filter(PackExtensionDefinition.code == pe_in.code).first():
+        raise HTTPException(status_code=400, detail="Pack extension code already exists")
+    pe = PackExtensionDefinition(code=pe_in.code, name=pe_in.name, description=pe_in.description)
+    for m in pe_in.materials:
+        mat = PackExtensionMaterial(**m.model_dump())
+        pe.materials.append(mat)
+    db.add(pe)
+    db.commit()
+    db.refresh(pe)
+    return pe
+
+
+@router.put("/pack-extension-definitions/{pe_id}", response_model=PackExtensionDefinitionResponse)
+def update_pack_extension_definition(
+    pe_id: int, pe_in: PackExtensionDefinitionUpdate,
+    current_user=Depends(require_permission("settings", "update")),
+    db: Session = Depends(get_db),
+):
+    pe = db.query(PackExtensionDefinition).filter(PackExtensionDefinition.id == pe_id).first()
+    if not pe:
+        raise HTTPException(status_code=404, detail="Pack extension definition not found")
+    if pe_in.name is not None:
+        pe.name = pe_in.name
+    if pe_in.description is not None:
+        pe.description = pe_in.description
+    if pe_in.is_active is not None:
+        pe.is_active = pe_in.is_active
+    if pe_in.materials is not None:
+        db.query(PackExtensionMaterial).filter(PackExtensionMaterial.pack_extension_id == pe_id).delete()
+        for m in pe_in.materials:
+            mat = PackExtensionMaterial(pack_extension_id=pe_id, **m.model_dump())
+            db.add(mat)
+    db.commit()
+    db.refresh(pe)
+    return pe
+
+
+@router.delete("/pack-extension-definitions/{pe_id}")
+def delete_pack_extension_definition(
+    pe_id: int,
+    current_user=Depends(require_permission("settings", "delete")),
+    db: Session = Depends(get_db),
+):
+    pe = db.query(PackExtensionDefinition).filter(PackExtensionDefinition.id == pe_id).first()
+    if not pe:
+        raise HTTPException(status_code=404, detail="Pack extension definition not found")
+    pe.is_active = False
+    db.commit()
+    return {"detail": "Pack extension definition deactivated"}
+
+
+# --- Item Pack Extensions ---
+
+@router.get("/items/{item_id}/pack-extensions", response_model=List[ItemPackExtensionResponse])
+def list_item_pack_extensions(
+    item_id: int,
+    current_user=Depends(require_permission("inventory", "read")),
+    db: Session = Depends(get_db),
+):
+    item = db.query(Item).filter(Item.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return db.query(ItemPackExtension).filter(ItemPackExtension.item_id == item_id).all()
+
+
+@router.post("/items/{item_id}/pack-extensions", response_model=ItemPackExtensionResponse, status_code=status.HTTP_201_CREATED)
+def add_item_pack_extension(
+    item_id: int, pe_in: ItemPackExtensionCreate,
+    current_user=Depends(require_permission("inventory", "update")),
+    db: Session = Depends(get_db),
+):
+    item = db.query(Item).filter(Item.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    existing = db.query(ItemPackExtension).filter(
+        ItemPackExtension.item_id == item_id,
+        ItemPackExtension.pack_extension_id == pe_in.pack_extension_id,
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Pack extension already assigned to this item")
+    ipe = ItemPackExtension(item_id=item_id, **pe_in.model_dump())
+    db.add(ipe)
+    db.commit()
+    db.refresh(ipe)
+    return ipe
+
+
+@router.put("/items/{item_id}/pack-extensions/{ipe_id}", response_model=ItemPackExtensionResponse)
+def update_item_pack_extension(
+    item_id: int, ipe_id: int, pe_in: ItemPackExtensionUpdate,
+    current_user=Depends(require_permission("inventory", "update")),
+    db: Session = Depends(get_db),
+):
+    ipe = db.query(ItemPackExtension).filter(
+        ItemPackExtension.id == ipe_id, ItemPackExtension.item_id == item_id
+    ).first()
+    if not ipe:
+        raise HTTPException(status_code=404, detail="Item pack extension not found")
+    for k, v in pe_in.model_dump(exclude_unset=True).items():
+        setattr(ipe, k, v)
+    db.commit()
+    db.refresh(ipe)
+    return ipe
+
+
+@router.delete("/items/{item_id}/pack-extensions/{ipe_id}")
+def remove_item_pack_extension(
+    item_id: int, ipe_id: int,
+    current_user=Depends(require_permission("inventory", "delete")),
+    db: Session = Depends(get_db),
+):
+    ipe = db.query(ItemPackExtension).filter(
+        ItemPackExtension.id == ipe_id, ItemPackExtension.item_id == item_id
+    ).first()
+    if not ipe:
+        raise HTTPException(status_code=404, detail="Item pack extension not found")
+    db.delete(ipe)
+    db.commit()
+    return {"detail": "Pack extension removed from item"}
