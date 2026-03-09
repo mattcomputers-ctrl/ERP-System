@@ -14,7 +14,7 @@ class Formula(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    product_item = relationship("Item")
+    product_item = relationship("Item", foreign_keys=[product_item_id])
     versions = relationship("FormulaVersion", back_populates="formula", cascade="all, delete-orphan")
 
 
