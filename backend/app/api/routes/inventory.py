@@ -16,7 +16,7 @@ from app.schemas.inventory import (
     LocationCreate, LocationResponse,
     LotCreate, LotResponse,
     InventoryAdjustment, InventoryTransfer, InventoryTransactionResponse,
-    UOMCreate, UOMResponse,
+    UOMCreate, UOMUpdate, UOMResponse,
     ItemAliasCreate, ItemAliasUpdate, ItemAliasResponse,
     PackComponentCreate, PackComponentResponse, PackDefinitionCreate, PackOperationRequest,
     ItemActiveRecipeCreate, ItemActiveRecipeResponse,
@@ -258,6 +258,40 @@ def create_uom(
     db.commit()
     db.refresh(uom)
     return uom
+
+
+@router.put("/uoms/{uom_id}", response_model=UOMResponse)
+def update_uom(
+    uom_id: int, uom_in: UOMUpdate,
+    current_user=Depends(require_permission("settings", "update")),
+    db: Session = Depends(get_db),
+):
+    uom = db.query(UnitOfMeasure).filter(UnitOfMeasure.id == uom_id).first()
+    if not uom:
+        raise HTTPException(status_code=404, detail="UOM not found")
+    for k, v in uom_in.model_dump(exclude_unset=True).items():
+        setattr(uom, k, v)
+    db.commit()
+    db.refresh(uom)
+    return uom
+
+
+@router.delete("/uoms/{uom_id}")
+def delete_uom(
+    uom_id: int,
+    current_user=Depends(require_permission("settings", "delete")),
+    db: Session = Depends(get_db),
+):
+    uom = db.query(UnitOfMeasure).filter(UnitOfMeasure.id == uom_id).first()
+    if not uom:
+        raise HTTPException(status_code=404, detail="UOM not found")
+    # Check if UOM is in use by any items
+    in_use = db.query(Item).filter(Item.primary_uom_id == uom_id).first()
+    if in_use:
+        raise HTTPException(status_code=400, detail="Cannot delete UOM that is assigned to items. Update those items first.")
+    db.delete(uom)
+    db.commit()
+    return {"detail": "UOM deleted"}
 
 
 # --- FIFO Valuation ---

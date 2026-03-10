@@ -420,7 +420,7 @@ export interface QCTestDefinition {
   name: string;
   test_type: string;
   method: string | null;
-  uom: string | null;
+  uom_id: number | null;
   is_active: boolean;
   created_at: string;
 }

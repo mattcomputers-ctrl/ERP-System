@@ -487,7 +487,7 @@ const ItemsPage: React.FC = () => {
                               <td className="py-2 text-right">{iqt.target_value ?? '-'}</td>
                               <td className="py-2 text-right">{iqt.min_value ?? '-'}</td>
                               <td className="py-2 text-right">{iqt.max_value ?? '-'}</td>
-                              <td className="py-2">{def?.uom || '-'}</td>
+                              <td className="py-2">{def?.uom_id ? getUomAbbrev(def.uom_id) || '-' : '-'}</td>
                               <td className="py-2">
                                 <button className="text-red-500 text-xs hover:underline" onClick={() => removeItemQCTest.mutate({ itemId: editingItem!.id, assignmentId: iqt.id })}>Remove</button>
                               </td>

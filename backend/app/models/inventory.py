@@ -203,10 +203,11 @@ class QCTestDefinition(Base):
     name = Column(String(200), nullable=False)
     test_type = Column(String(20), nullable=False)  # pass_fail, range
     method = Column(String(200), nullable=True)
-    uom = Column(String(50), nullable=True)
+    uom_id = Column(Integer, ForeignKey("units_of_measure.id"), nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    uom = relationship("UnitOfMeasure")
 
 
 class ItemQCTest(Base):

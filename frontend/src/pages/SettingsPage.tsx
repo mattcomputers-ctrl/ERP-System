@@ -5,9 +5,9 @@ import PageHeader from '../components/common/PageHeader';
 import DataTable from '../components/common/DataTable';
 import Modal from '../components/common/Modal';
 import { settingsAPI, inventoryAPI } from '../services/api';
-import type { ShipVia, Branding, QCTestDefinition, PackExtensionDefinition, Item } from '../types';
+import type { ShipVia, Branding, QCTestDefinition, PackExtensionDefinition, Item, UOM } from '../types';
 
-type SettingsTab = 'branding' | 'ship-vias' | 'qc-tests' | 'pack-extensions';
+type SettingsTab = 'branding' | 'ship-vias' | 'uom' | 'qc-tests' | 'pack-extensions';
 
 const SettingsPage: React.FC = () => {
   const [tab, setTab] = useState<SettingsTab>('branding');
@@ -19,10 +19,15 @@ const SettingsPage: React.FC = () => {
     phone: '', email: '', website: '', primary_color: '#1e40af',
   });
 
+  // UOM state
+  const [showUOMForm, setShowUOMForm] = useState(false);
+  const [editingUOM, setEditingUOM] = useState<UOM | null>(null);
+  const [uomForm, setUomForm] = useState({ name: '', abbreviation: '', category: 'weight' });
+
   // QC Test Definition state
   const [showQCTestForm, setShowQCTestForm] = useState(false);
   const [editingQCTest, setEditingQCTest] = useState<QCTestDefinition | null>(null);
-  const [qcTestForm, setQcTestForm] = useState({ name: '', test_type: 'range', method: '', uom: '' });
+  const [qcTestForm, setQcTestForm] = useState({ name: '', test_type: 'range', method: '', uom_id: null as number | null });
 
   // Pack Extension Definition state
   const [showPackExtForm, setShowPackExtForm] = useState(false);
@@ -41,7 +46,7 @@ const SettingsPage: React.FC = () => {
   const { data: uoms } = useQuery({ queryKey: ['uoms'], queryFn: () => inventoryAPI.listUOMs() });
 
   const items: Item[] = itemsList?.data || [];
-  const uomList = uoms?.data || [];
+  const uomList: UOM[] = uoms?.data || [];
 
   useEffect(() => {
     if (branding?.data) {
@@ -72,6 +77,19 @@ const SettingsPage: React.FC = () => {
     mutationFn: (id: number) => settingsAPI.deleteShipVia(id),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['ship-vias'] }); toast.success('Ship Via deleted'); },
     onError: () => toast.error('Failed to delete Ship Via'),
+  });
+
+  // --- UOM mutations ---
+  const saveUOM = useMutation({
+    mutationFn: (data: any) => editingUOM ? inventoryAPI.updateUOM(editingUOM.id, data) : inventoryAPI.createUOM(data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['uoms'] }); closeUOMForm(); toast.success(editingUOM ? 'UOM updated' : 'UOM created'); },
+    onError: (err: any) => toast.error(err?.response?.data?.detail || 'Failed to save UOM'),
+  });
+
+  const deleteUOM = useMutation({
+    mutationFn: (id: number) => inventoryAPI.deleteUOM(id),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['uoms'] }); toast.success('UOM deleted'); },
+    onError: (err: any) => toast.error(err?.response?.data?.detail || 'Failed to delete UOM'),
   });
 
   // --- QC Test Definition mutations ---
@@ -106,10 +124,17 @@ const SettingsPage: React.FC = () => {
     setShowShipViaForm(true);
   };
 
-  const closeQCTestForm = () => { setShowQCTestForm(false); setEditingQCTest(null); setQcTestForm({ name: '', test_type: 'range', method: '', uom: '' }); };
+  const closeUOMForm = () => { setShowUOMForm(false); setEditingUOM(null); setUomForm({ name: '', abbreviation: '', category: 'weight' }); };
+  const openEditUOM = (u: UOM) => {
+    setEditingUOM(u);
+    setUomForm({ name: u.name, abbreviation: u.abbreviation, category: u.category });
+    setShowUOMForm(true);
+  };
+
+  const closeQCTestForm = () => { setShowQCTestForm(false); setEditingQCTest(null); setQcTestForm({ name: '', test_type: 'range', method: '', uom_id: null }); };
   const openEditQCTest = (td: QCTestDefinition) => {
     setEditingQCTest(td);
-    setQcTestForm({ name: td.name, test_type: td.test_type, method: td.method || '', uom: td.uom || '' });
+    setQcTestForm({ name: td.name, test_type: td.test_type, method: td.method || '', uom_id: td.uom_id });
     setShowQCTestForm(true);
   };
 
@@ -121,6 +146,12 @@ const SettingsPage: React.FC = () => {
       materials: pe.materials.map(m => ({ material_item_id: m.material_item_id, quantity_per_lb: String(m.quantity_per_lb), uom_id: m.uom_id })),
     });
     setShowPackExtForm(true);
+  };
+
+  const getUomName = (id: number | null) => {
+    if (!id) return '-';
+    const u = uomList.find(u => u.id === id);
+    return u ? `${u.name} (${u.abbreviation})` : '-';
   };
 
   // --- Column definitions ---
@@ -137,11 +168,23 @@ const SettingsPage: React.FC = () => {
     )) },
   ];
 
+  const uomColumns = [
+    { header: 'Name', accessor: 'name' as keyof UOM },
+    { header: 'Abbreviation', accessor: 'abbreviation' as keyof UOM },
+    { header: 'Category', accessor: ((row: UOM) => <span className="badge-blue">{row.category}</span>) },
+    { header: 'Actions', accessor: ((row: UOM) => (
+      <div className="flex gap-2">
+        <button className="text-sm text-blue-600 hover:underline" onClick={(e) => { e.stopPropagation(); openEditUOM(row); }}>Edit</button>
+        <button className="text-sm text-red-600 hover:underline" onClick={(e) => { e.stopPropagation(); deleteUOM.mutate(row.id); }}>Delete</button>
+      </div>
+    )) },
+  ];
+
   const qcTestColumns = [
     { header: 'Name', accessor: 'name' as keyof QCTestDefinition },
     { header: 'Type', accessor: ((row: QCTestDefinition) => <span className={row.test_type === 'pass_fail' ? 'badge-blue' : 'badge-yellow'}>{row.test_type === 'pass_fail' ? 'Pass/Fail' : 'Range'}</span>) },
     { header: 'Method', accessor: ((row: QCTestDefinition) => row.method || '-') },
-    { header: 'UOM', accessor: ((row: QCTestDefinition) => row.uom || '-') },
+    { header: 'UOM', accessor: ((row: QCTestDefinition) => getUomName(row.uom_id)) },
     { header: 'Actions', accessor: ((row: QCTestDefinition) => (
       <div className="flex gap-2">
         <button className="text-sm text-blue-600 hover:underline" onClick={(e) => { e.stopPropagation(); openEditQCTest(row); }}>Edit</button>
@@ -166,12 +209,14 @@ const SettingsPage: React.FC = () => {
   const tabs: { id: SettingsTab; label: string }[] = [
     { id: 'branding', label: 'Branding' },
     { id: 'ship-vias', label: 'Ship Vias' },
+    { id: 'uom', label: 'Units of Measure' },
     { id: 'qc-tests', label: 'QC Tests' },
     { id: 'pack-extensions', label: 'Pack Extensions' },
   ];
 
   const getTabAction = () => {
     if (tab === 'ship-vias') return <button className="btn-primary" onClick={() => setShowShipViaForm(true)}>New Ship Via</button>;
+    if (tab === 'uom') return <button className="btn-primary" onClick={() => setShowUOMForm(true)}>New UOM</button>;
     if (tab === 'qc-tests') return <button className="btn-primary" onClick={() => setShowQCTestForm(true)}>New QC Test</button>;
     if (tab === 'pack-extensions') return <button className="btn-primary" onClick={() => setShowPackExtForm(true)}>New Pack Extension</button>;
     return undefined;
@@ -181,7 +226,7 @@ const SettingsPage: React.FC = () => {
     <div>
       <PageHeader
         title="Settings"
-        subtitle="Configure branding, shipping methods, QC tests, and pack extensions"
+        subtitle="Configure branding, shipping, units of measure, QC tests, and pack extensions"
         actions={getTabAction()}
       />
 
@@ -269,6 +314,13 @@ const SettingsPage: React.FC = () => {
         </div>
       )}
 
+      {/* ======== UNITS OF MEASURE TAB ======== */}
+      {tab === 'uom' && (
+        <div className="card">
+          <DataTable columns={uomColumns} data={uomList} />
+        </div>
+      )}
+
       {/* ======== QC TESTS TAB ======== */}
       {tab === 'qc-tests' && (
         <div className="card">
@@ -305,6 +357,35 @@ const SettingsPage: React.FC = () => {
         </form>
       </Modal>
 
+      {/* UOM Form Modal */}
+      <Modal isOpen={showUOMForm} onClose={closeUOMForm} title={editingUOM ? 'Edit Unit of Measure' : 'New Unit of Measure'}>
+        <form onSubmit={(e) => { e.preventDefault(); saveUOM.mutate(uomForm); }} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Name</label>
+            <input className="input-field" value={uomForm.name} onChange={(e) => setUomForm({ ...uomForm, name: e.target.value })} required placeholder="e.g., Pound" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Abbreviation</label>
+            <input className="input-field" value={uomForm.abbreviation} onChange={(e) => setUomForm({ ...uomForm, abbreviation: e.target.value })} required placeholder="e.g., LB" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Category</label>
+            <select className="input-field" value={uomForm.category} onChange={(e) => setUomForm({ ...uomForm, category: e.target.value })}>
+              <option value="weight">Weight</option>
+              <option value="volume">Volume</option>
+              <option value="count">Count</option>
+              <option value="length">Length</option>
+              <option value="area">Area</option>
+              <option value="time">Time</option>
+            </select>
+          </div>
+          <div className="flex justify-end gap-3">
+            <button type="button" className="btn-secondary" onClick={closeUOMForm}>Cancel</button>
+            <button type="submit" className="btn-primary" disabled={saveUOM.isPending}>{editingUOM ? 'Save' : 'Create'}</button>
+          </div>
+        </form>
+      </Modal>
+
       {/* QC Test Definition Form Modal */}
       <Modal isOpen={showQCTestForm} onClose={closeQCTestForm} title={editingQCTest ? 'Edit QC Test' : 'New QC Test'}>
         <form onSubmit={(e) => { e.preventDefault(); saveQCTest.mutate(qcTestForm); }} className="space-y-4">
@@ -325,7 +406,10 @@ const SettingsPage: React.FC = () => {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">UOM</label>
-            <input className="input-field" value={qcTestForm.uom} onChange={(e) => setQcTestForm({ ...qcTestForm, uom: e.target.value })} placeholder="e.g., cP, °F, %" />
+            <select className="input-field" value={qcTestForm.uom_id || ''} onChange={(e) => setQcTestForm({ ...qcTestForm, uom_id: e.target.value ? Number(e.target.value) : null })}>
+              <option value="">-- None --</option>
+              {uomList.map(u => <option key={u.id} value={u.id}>{u.name} ({u.abbreviation})</option>)}
+            </select>
           </div>
           <div className="flex justify-end gap-3">
             <button type="button" className="btn-secondary" onClick={closeQCTestForm}>Cancel</button>
@@ -380,7 +464,7 @@ const SettingsPage: React.FC = () => {
                 <tbody>
                   {packExtForm.materials.map((m, i) => {
                     const item = items.find(it => it.id === m.material_item_id);
-                    const uom = uomList.find((u: any) => u.id === m.uom_id);
+                    const uom = uomList.find(u => u.id === m.uom_id);
                     return (
                       <tr key={i} className="border-b">
                         <td className="py-1">{item ? `${item.item_code} - ${item.name}` : `Item #${m.material_item_id}`}</td>
@@ -415,7 +499,7 @@ const SettingsPage: React.FC = () => {
                 <label className="block text-xs mb-1">UOM</label>
                 <select className="input-field" value={materialForm.uom_id || ''} onChange={(e) => setMaterialForm({ ...materialForm, uom_id: e.target.value ? Number(e.target.value) : null })}>
                   <option value="">-- Select --</option>
-                  {uomList.map((u: any) => <option key={u.id} value={u.id}>{u.abbreviation}</option>)}
+                  {uomList.map(u => <option key={u.id} value={u.id}>{u.abbreviation}</option>)}
                 </select>
               </div>
               <button type="button" className="btn-secondary text-sm" onClick={() => {

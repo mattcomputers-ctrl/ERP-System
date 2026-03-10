@@ -251,6 +251,12 @@ class UOMCreate(UOMBase):
     pass
 
 
+class UOMUpdate(BaseModel):
+    name: Optional[str] = None
+    abbreviation: Optional[str] = None
+    category: Optional[str] = None
+
+
 class UOMResponse(UOMBase):
     id: int
 
@@ -282,7 +288,7 @@ class QCTestDefinitionBase(BaseModel):
     name: str
     test_type: str  # pass_fail, range
     method: Optional[str] = None
-    uom: Optional[str] = None
+    uom_id: Optional[int] = None
 
 
 class QCTestDefinitionCreate(QCTestDefinitionBase):
@@ -293,7 +299,7 @@ class QCTestDefinitionUpdate(BaseModel):
     name: Optional[str] = None
     test_type: Optional[str] = None
     method: Optional[str] = None
-    uom: Optional[str] = None
+    uom_id: Optional[int] = None
     is_active: Optional[bool] = None
 
 
