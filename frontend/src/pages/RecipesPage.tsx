@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import PageHeader from '../components/common/PageHeader';
@@ -18,7 +18,8 @@ interface IngredientRow {
 
 interface ProcedureRow {
   sequence: number;
-  step_type: string;
+  step_type: string; // add_ingredient, instruction
+  ingredient_item_id: number | null;
   instruction_text: string;
 }
 
@@ -94,6 +95,7 @@ const RecipesPage: React.FC = () => {
       setProcedureSteps(ver.procedure_steps.map(s => ({
         sequence: s.sequence,
         step_type: s.step_type,
+        ingredient_item_id: s.ingredient_item_id || null,
         instruction_text: s.instruction_text || '',
       })));
     }
@@ -114,6 +116,7 @@ const RecipesPage: React.FC = () => {
     procedure_steps: procedureSteps.map((s, i) => ({
       sequence: i + 1,
       step_type: s.step_type,
+      ingredient_item_id: s.ingredient_item_id,
       instruction_text: s.instruction_text || null,
     })),
   });
@@ -122,26 +125,22 @@ const RecipesPage: React.FC = () => {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!editingRecipe) {
-        // Create new recipe
         return recipesAPI.create({
           product_item_id: productItemId,
           description: description || null,
           initial_version: buildVersionPayload(),
         });
       } else if (selectedVersion && selectedVersion.status === 'draft') {
-        // Update existing draft version
         await recipesAPI.update(editingRecipe.id, { description: description || null });
         return recipesAPI.updateVersion(selectedVersion.id, buildVersionPayload());
       } else {
-        // Recipe exists but version is published - shouldn't save over it
-        throw new Error('Cannot edit a published version. Clone first.');
+        throw new Error('Cannot edit a published version. Clone to create a new revision.');
       }
     },
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['recipes'] });
       toast.success('Recipe saved');
       if (!editingRecipe && res?.data) {
-        // Re-open the newly created recipe
         const newRecipe = res.data as Recipe;
         setEditingRecipe(newRecipe);
         if (newRecipe.versions?.length) {
@@ -156,7 +155,7 @@ const RecipesPage: React.FC = () => {
     mutationFn: (versionId: number) => recipesAPI.publishVersion(versionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['recipes'] });
-      toast.success('Recipe published');
+      toast.success('Recipe published - this version is now locked');
       setShowEditor(false);
       resetEditor();
     },
@@ -166,10 +165,9 @@ const RecipesPage: React.FC = () => {
   const cloneMutation = useMutation({
     mutationFn: ({ recipeId, versionId }: { recipeId: number; versionId?: number }) =>
       recipesAPI.cloneVersion(recipeId, versionId),
-    onSuccess: (res) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['recipes'] });
-      toast.success('Version cloned');
-      // Re-fetch recipe and open the new version
+      toast.success('New revision created from clone');
       if (editingRecipe) {
         recipesAPI.get(editingRecipe.id).then(r => {
           const recipe = r.data as Recipe;
@@ -205,20 +203,36 @@ const RecipesPage: React.FC = () => {
   const totalPercent = ingredients.reduce((s, i) => s + (Number(i.weight_percent) || 0), 0);
 
   // --- Procedure helpers ---
-  const addFormulaStep = () => {
-    setProcedureSteps([...procedureSteps, {
-      sequence: procedureSteps.length + 1,
-      step_type: 'add_formula',
+  const addFormulaSteps = () => {
+    if (ingredients.length === 0) {
+      toast.error('Add ingredients first before adding formula to procedure');
+      return;
+    }
+    const newSteps: ProcedureRow[] = ingredients.map((ing, idx) => ({
+      sequence: procedureSteps.length + idx + 1,
+      step_type: 'add_ingredient',
+      ingredient_item_id: ing.item_id,
       instruction_text: '',
-    }]);
+    }));
+    setProcedureSteps([...procedureSteps, ...newSteps]);
+    toast.success(`Added ${newSteps.length} ingredient steps`);
   };
 
   const addInstructionStep = () => {
     setProcedureSteps([...procedureSteps, {
       sequence: procedureSteps.length + 1,
       step_type: 'instruction',
+      ingredient_item_id: null,
       instruction_text: '',
     }]);
+  };
+
+  const clearProcedure = () => {
+    if (procedureSteps.length === 0) return;
+    if (confirm('Clear all procedure steps? This cannot be undone.')) {
+      setProcedureSteps([]);
+      toast.success('Procedure cleared');
+    }
   };
 
   const moveProcedureStep = (idx: number, direction: 'up' | 'down') => {
@@ -239,7 +253,8 @@ const RecipesPage: React.FC = () => {
     setProcedureSteps(newSteps);
   };
 
-  // Determine if editing is allowed
+  // Published versions are locked - only drafts are editable
+  const isPublished = selectedVersion?.status === 'published';
   const isEditable = !selectedVersion || selectedVersion.status === 'draft';
 
   // --- List columns ---
@@ -291,6 +306,13 @@ const RecipesPage: React.FC = () => {
         size="xl"
       >
         <div>
+          {/* Published banner */}
+          {isPublished && (
+            <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
+              <strong>This version is published and locked.</strong> No changes can be made. To modify, clone this version to create a new revision.
+            </div>
+          )}
+
           {/* Version selector */}
           {editingRecipe && editingRecipe.versions.length > 1 && (
             <div className="mb-4 flex items-center gap-2">
@@ -309,6 +331,7 @@ const RecipesPage: React.FC = () => {
                   </option>
                 ))}
               </select>
+              <span className="text-xs text-gray-400">All versions are preserved permanently</span>
             </div>
           )}
 
@@ -486,43 +509,57 @@ const RecipesPage: React.FC = () => {
           {editorTab === 'procedure' && (
             <div className="space-y-4">
               {procedureSteps.length === 0 && (
-                <p className="text-gray-400 text-sm text-center py-4">No procedure steps yet.</p>
+                <p className="text-gray-400 text-sm text-center py-4">
+                  No procedure steps yet.{isEditable && ' Use "Add Formula" to add each ingredient as a step, then intersperse instructions as needed.'}
+                </p>
               )}
               {procedureSteps.map((step, idx) => (
-                <div key={idx} className="flex gap-2 items-start border rounded-lg p-3 bg-gray-50">
-                  <div className="flex flex-col gap-1 pt-1">
-                    <button
-                      className="text-gray-400 hover:text-gray-700 disabled:opacity-30"
-                      disabled={idx === 0 || !isEditable}
-                      onClick={() => moveProcedureStep(idx, 'up')}
-                      title="Move up"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
-                    </button>
-                    <button
-                      className="text-gray-400 hover:text-gray-700 disabled:opacity-30"
-                      disabled={idx === procedureSteps.length - 1 || !isEditable}
-                      onClick={() => moveProcedureStep(idx, 'down')}
-                      title="Move down"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                    </button>
-                  </div>
+                <div key={idx} className={`flex gap-2 items-start border rounded-lg p-3 ${step.step_type === 'add_ingredient' ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'}`}>
+                  {isEditable && (
+                    <div className="flex flex-col gap-1 pt-1">
+                      <button
+                        className="text-gray-400 hover:text-gray-700 disabled:opacity-30"
+                        disabled={idx === 0}
+                        onClick={() => moveProcedureStep(idx, 'up')}
+                        title="Move up"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                      </button>
+                      <button
+                        className="text-gray-400 hover:text-gray-700 disabled:opacity-30"
+                        disabled={idx === procedureSteps.length - 1}
+                        onClick={() => moveProcedureStep(idx, 'down')}
+                        title="Move down"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                      </button>
+                    </div>
+                  )}
                   <div className="text-sm font-medium text-gray-500 w-8 pt-2">{idx + 1}.</div>
                   <div className="flex-1">
-                    {step.step_type === 'add_formula' ? (
-                      <div className="bg-blue-50 border border-blue-200 rounded px-3 py-2 text-sm text-blue-800 font-medium">
-                        Add Formula (all ingredients per weight %)
+                    {step.step_type === 'add_ingredient' ? (
+                      <div className="text-sm text-blue-800 font-medium">
+                        <span className="inline-block bg-blue-100 rounded px-2 py-0.5 mr-2 text-xs uppercase tracking-wide">Add</span>
+                        <span className="font-mono">{step.ingredient_item_id ? getItemCode(step.ingredient_item_id) : '?'}</span>
+                        {' - '}
+                        <span>{step.ingredient_item_id ? getItemName(step.ingredient_item_id) : '?'}</span>
+                        {(() => {
+                          const ing = ingredients.find(i => i.item_id === step.ingredient_item_id);
+                          return ing ? <span className="text-blue-600 ml-2">({ing.weight_percent}%)</span> : null;
+                        })()}
                       </div>
                     ) : (
-                      <textarea
-                        className="input-field w-full"
-                        rows={2}
-                        value={step.instruction_text}
-                        onChange={(e) => updateProcedureStep(idx, e.target.value)}
-                        disabled={!isEditable}
-                        placeholder="Enter instruction..."
-                      />
+                      isEditable ? (
+                        <textarea
+                          className="input-field w-full"
+                          rows={2}
+                          value={step.instruction_text}
+                          onChange={(e) => updateProcedureStep(idx, e.target.value)}
+                          placeholder="Enter instruction..."
+                        />
+                      ) : (
+                        <div className="text-sm py-1">{step.instruction_text || <span className="text-gray-400 italic">No instruction text</span>}</div>
+                      )
                     )}
                   </div>
                   {isEditable && (
@@ -532,13 +569,22 @@ const RecipesPage: React.FC = () => {
               ))}
 
               {isEditable && (
-                <div className="flex gap-2">
-                  <button type="button" className="btn-secondary text-sm" onClick={addFormulaStep}>
+                <div className="flex gap-2 items-center">
+                  <button type="button" className="btn-secondary text-sm" onClick={addFormulaSteps}>
                     + Add Formula
                   </button>
                   <button type="button" className="btn-secondary text-sm" onClick={addInstructionStep}>
                     + Add Instruction
                   </button>
+                  {procedureSteps.length > 0 && (
+                    <button
+                      type="button"
+                      className="ml-auto text-sm text-red-600 hover:text-red-800 hover:underline"
+                      onClick={clearProcedure}
+                    >
+                      Clear All
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -575,7 +621,7 @@ const RecipesPage: React.FC = () => {
                       type="button"
                       className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium"
                       onClick={() => {
-                        if (confirm('Publish this version? It cannot be edited after publishing.')) {
+                        if (confirm('Publish this version? Once published, it is locked permanently and can only be changed by creating a new revision.')) {
                           publishMutation.mutate(selectedVersion.id);
                         }
                       }}

@@ -525,7 +525,8 @@ export interface RecipeIngredient {
 export interface RecipeProcedureStep {
   id: number;
   sequence: number;
-  step_type: string; // add_formula, instruction
+  step_type: string; // add_ingredient, instruction
+  ingredient_item_id: number | null;
   instruction_text: string | null;
 }
 

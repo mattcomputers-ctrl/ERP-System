@@ -53,14 +53,16 @@ class RecipeIngredient(Base):
 
 
 class RecipeProcedureStep(Base):
-    """Ordered procedure steps: either 'add_formula' (adds all ingredients) or 'instruction' (free text)."""
+    """Ordered procedure steps: 'add_ingredient' (single ingredient) or 'instruction' (free text)."""
     __tablename__ = "recipe_procedure_steps"
     id = Column(Integer, primary_key=True, index=True)
     recipe_version_id = Column(Integer, ForeignKey("recipe_versions.id", ondelete="CASCADE"), nullable=False)
     sequence = Column(Integer, nullable=False)
-    step_type = Column(String(30), nullable=False)  # add_formula, instruction
+    step_type = Column(String(30), nullable=False)  # add_ingredient, instruction
+    ingredient_item_id = Column(Integer, ForeignKey("items.id"), nullable=True)  # for add_ingredient steps
     instruction_text = Column(Text, nullable=True)
     recipe_version = relationship("RecipeVersion", back_populates="procedure_steps")
+    ingredient_item = relationship("Item")
 
 
 class BatchTicket(Base):

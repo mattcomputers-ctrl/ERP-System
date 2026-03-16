@@ -24,7 +24,8 @@ class RecipeIngredientResponse(RecipeIngredientCreate):
 
 class RecipeProcedureStepCreate(BaseModel):
     sequence: int
-    step_type: str  # add_formula, instruction
+    step_type: str  # add_ingredient, instruction
+    ingredient_item_id: Optional[int] = None  # for add_ingredient steps
     instruction_text: Optional[str] = None
 
 

@@ -221,6 +221,7 @@ def clone_recipe_version(
         new_version.procedure_steps.append(RecipeProcedureStep(
             sequence=step.sequence,
             step_type=step.step_type,
+            ingredient_item_id=step.ingredient_item_id,
             instruction_text=step.instruction_text,
         ))
     db.add(new_version)
