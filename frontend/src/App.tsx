@@ -11,6 +11,9 @@ import SalesPage from './pages/SalesPage';
 import VendorsPage from './pages/VendorsPage';
 import PurchasingPage from './pages/PurchasingPage';
 import ManufacturingPage from './pages/ManufacturingPage';
+import RecipesPage from './pages/RecipesPage';
+import BatchTicketsPage from './pages/BatchTicketsPage';
+import BatchExecutionPage from './pages/BatchExecutionPage';
 import QualityPage from './pages/QualityPage';
 import TraceabilityPage from './pages/TraceabilityPage';
 import ReportsPage from './pages/ReportsPage';
@@ -45,6 +48,9 @@ const App: React.FC = () => {
         <Route path="vendors" element={<VendorsPage />} />
         <Route path="purchasing" element={<PurchasingPage />} />
         <Route path="manufacturing" element={<ManufacturingPage />} />
+        <Route path="recipes" element={<RecipesPage />} />
+        <Route path="batch-tickets" element={<BatchTicketsPage />} />
+        <Route path="batch-execution" element={<BatchExecutionPage />} />
         <Route path="quality" element={<QualityPage />} />
         <Route path="traceability" element={<TraceabilityPage />} />
         <Route path="reports" element={<ReportsPage />} />

@@ -511,3 +511,114 @@ export interface UOM {
   abbreviation: string;
   category: string;
 }
+
+// --- Recipes ---
+
+export interface RecipeIngredient {
+  id: number;
+  item_id: number;
+  sequence: number;
+  weight_percent: number;
+  notes: string | null;
+}
+
+export interface RecipeProcedureStep {
+  id: number;
+  sequence: number;
+  step_type: string; // add_formula, instruction
+  instruction_text: string | null;
+}
+
+export interface RecipeVersion {
+  id: number;
+  recipe_id: number;
+  version_number: number;
+  status: string; // draft, published
+  comment: string | null;
+  batch_size: number | null;
+  batch_uom_id: number | null;
+  expected_yield_percent: number;
+  published_at: string | null;
+  created_at: string;
+  ingredients: RecipeIngredient[];
+  procedure_steps: RecipeProcedureStep[];
+}
+
+export interface Recipe {
+  id: number;
+  product_item_id: number;
+  description: string | null;
+  is_active: boolean;
+  versions: RecipeVersion[];
+  created_at: string;
+}
+
+// --- Batch Tickets ---
+
+export interface BatchTicketPackage {
+  id: number;
+  pack_extension_id: number;
+  quantity: number;
+}
+
+export interface BatchTicketMaterial {
+  id: number;
+  item_id: number;
+  planned_quantity: number;
+  available_quantity: number | null;
+  has_shortage: boolean;
+}
+
+export interface BatchTicket {
+  id: number;
+  ticket_number: string;
+  ticket_type: string; // batch, repack
+  recipe_id: number | null;
+  recipe_version_id: number | null;
+  item_id: number;
+  planned_quantity: number;
+  due_date: string | null;
+  customer_id: number | null;
+  status: string;
+  has_shortage: boolean;
+  shortage_override: boolean;
+  shortage_details: string | null;
+  notes: string | null;
+  packages: BatchTicketPackage[];
+  planned_materials: BatchTicketMaterial[];
+  created_at: string;
+}
+
+// --- Batch Execution ---
+
+export interface BatchExecutionConsumption {
+  id: number;
+  item_id: number;
+  lot_id: number | null;
+  planned_quantity: number | null;
+  actual_quantity: number;
+  unit_cost: number | null;
+  total_cost: number | null;
+}
+
+export interface BatchExecutionOutput {
+  id: number;
+  item_id: number;
+  lot_id: number | null;
+  quantity: number;
+  unit_cost: number | null;
+  total_cost: number | null;
+}
+
+export interface BatchExecution {
+  id: number;
+  batch_ticket_id: number;
+  status: string;
+  actual_yield: number | null;
+  yield_percent: number | null;
+  started_at: string;
+  completed_at: string | null;
+  notes: string | null;
+  consumptions: BatchExecutionConsumption[];
+  outputs: BatchExecutionOutput[];
+}

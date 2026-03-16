@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.api.routes import auth, users, gl_groups, inventory, sales, purchasing, manufacturing, quality, traceability, reports, documents, quickbooks
+from app.api.routes import auth, users, gl_groups, inventory, sales, purchasing, manufacturing, quality, traceability, reports, documents, quickbooks, recipes
 from app.api.routes import settings as settings_routes
 
 app = FastAPI(
@@ -35,6 +35,7 @@ app.include_router(reports.router, prefix="/api/v1")
 app.include_router(settings_routes.router, prefix="/api/v1")
 app.include_router(documents.router, prefix="/api/v1")
 app.include_router(quickbooks.router, prefix="/api/v1")
+app.include_router(recipes.router, prefix="/api/v1")
 
 
 @app.get("/api/health")

@@ -224,6 +224,29 @@ export const settingsAPI = {
   deleteSalesTaxOption: (id: number) => api.delete(`/settings/sales-tax-options/${id}`),
 };
 
+// --- Recipes ---
+export const recipesAPI = {
+  list: (params?: any) => api.get('/recipes/', { params }),
+  create: (data: any) => api.post('/recipes/', data),
+  get: (id: number) => api.get(`/recipes/${id}`),
+  update: (id: number, data: any) => api.put(`/recipes/${id}`, data),
+  addVersion: (recipeId: number, data: any) => api.post(`/recipes/${recipeId}/versions`, data),
+  updateVersion: (versionId: number, data: any) => api.put(`/recipes/versions/${versionId}`, data),
+  publishVersion: (versionId: number) => api.post(`/recipes/versions/${versionId}/publish`),
+  cloneVersion: (recipeId: number, sourceVersionId?: number) =>
+    api.post(`/recipes/${recipeId}/clone`, null, { params: sourceVersionId ? { source_version_id: sourceVersionId } : undefined }),
+  // Batch Tickets
+  listBatchTickets: (params?: any) => api.get('/recipes/batch-tickets', { params }),
+  createBatchTicket: (data: any) => api.post('/recipes/batch-tickets', data),
+  getBatchTicket: (id: number) => api.get(`/recipes/batch-tickets/${id}`),
+  updateBatchTicket: (id: number, data: any) => api.put(`/recipes/batch-tickets/${id}`, data),
+  // Batch Execution
+  startExecution: (ticketId: number, data?: any) => api.post(`/recipes/batch-tickets/${ticketId}/execute`, data || {}),
+  getExecution: (ticketId: number) => api.get(`/recipes/batch-tickets/${ticketId}/execution`),
+  recordConsumption: (ticketId: number, data: any) => api.post(`/recipes/batch-tickets/${ticketId}/execute/consume`, data),
+  completeExecution: (ticketId: number, data: any) => api.post(`/recipes/batch-tickets/${ticketId}/execute/complete`, data),
+};
+
 // --- Documents ---
 export const documentsAPI = {
   listTemplates: (docType?: string) => api.get('/documents/templates', { params: { doc_type: docType } }),
