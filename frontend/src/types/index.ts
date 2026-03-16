@@ -69,6 +69,7 @@ export interface Lot {
   id: number;
   lot_number: string;
   item_id: number;
+  pack_extension_id: number | null;
   warehouse_id: number | null;
   location_id: number | null;
   quantity_on_hand: number;
@@ -79,6 +80,23 @@ export interface Lot {
   received_date: string | null;
   vendor_lot_number: string | null;
   created_at: string;
+}
+
+export interface InventorySummaryRow {
+  warehouse_code: string;
+  warehouse_name: string;
+  warehouse_id: number | null;
+  item_id: number;
+  item_code: string;
+  item_base_code: string;
+  item_name: string;
+  pack_extension_id: number | null;
+  pack_extension_code: string | null;
+  pack_extension_name: string | null;
+  qty_on_hand: number;
+  qty_allocated: number;
+  uom_abbreviation: string;
+  gl_group_name: string;
 }
 
 export interface Warehouse {

@@ -107,6 +107,7 @@ class LocationResponse(LocationBase):
 class LotBase(BaseModel):
     lot_number: str
     item_id: int
+    pack_extension_id: Optional[int] = None
     warehouse_id: Optional[int] = None
     location_id: Optional[int] = None
 
@@ -135,6 +136,7 @@ class LotResponse(LotBase):
 
 class InventoryAdjustment(BaseModel):
     item_id: int
+    pack_extension_id: Optional[int] = None
     lot_id: Optional[int] = None
     warehouse_id: Optional[int] = None
     location_id: Optional[int] = None

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func as sa_func
 from typing import List, Optional
 from decimal import Decimal
 from app.core.database import get_db
@@ -189,10 +190,25 @@ def create_adjustment(
         if not lot:
             raise HTTPException(status_code=404, detail="Lot not found")
         lot.quantity_on_hand += adj.quantity
+    else:
+        # Auto-create a lot for the adjustment
+        from datetime import datetime, timezone
+        pe = db.query(PackExtensionDefinition).filter(PackExtensionDefinition.id == adj.pack_extension_id).first() if adj.pack_extension_id else None
+        suffix = pe.code if pe else ""
+        lot_number = f"ADJ-{item.item_code}{suffix}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+        lot = Lot(
+            lot_number=lot_number, item_id=adj.item_id,
+            pack_extension_id=adj.pack_extension_id,
+            warehouse_id=adj.warehouse_id, location_id=adj.location_id,
+            quantity_on_hand=adj.quantity, status="available",
+            received_date=datetime.now(timezone.utc),
+        )
+        db.add(lot)
+        db.flush()
     txn = InventoryTransaction(
         transaction_type="adjustment",
         item_id=adj.item_id,
-        lot_id=adj.lot_id,
+        lot_id=lot.id if lot else None,
         warehouse_id=adj.warehouse_id,
         location_id=adj.location_id,
         quantity=adj.quantity,
@@ -205,7 +221,7 @@ def create_adjustment(
     db.add(txn)
     if adj.quantity > 0 and adj.unit_cost:
         layer = FIFOCostLayer(
-            item_id=adj.item_id, lot_id=adj.lot_id,
+            item_id=adj.item_id, lot_id=lot.id if lot else None,
             quantity_remaining=adj.quantity, unit_cost=adj.unit_cost,
             total_cost=adj.unit_cost * adj.quantity,
             reference_type="adjustment", reference_id=None,
@@ -315,6 +331,64 @@ def get_fifo_valuation(
             "total_value": float(l.quantity_remaining * l.unit_cost),
             "received_date": l.received_date.isoformat() if l.received_date else None,
         })
+    return result
+
+
+# --- Inventory Summary (on-hand by warehouse/item/pack extension) ---
+
+@router.get("/summary")
+def get_inventory_summary(
+    warehouse_id: Optional[int] = None,
+    current_user=Depends(require_permission("inventory", "read")),
+    db: Session = Depends(get_db),
+):
+    """Aggregate on-hand inventory by warehouse, item, and pack extension.
+    Only rows with qty > 0 are returned."""
+    q = db.query(
+        Lot.warehouse_id,
+        Lot.item_id,
+        Lot.pack_extension_id,
+        sa_func.sum(Lot.quantity_on_hand).label("qty_on_hand"),
+        sa_func.sum(Lot.quantity_allocated).label("qty_allocated"),
+    ).filter(
+        Lot.quantity_on_hand > 0
+    ).group_by(
+        Lot.warehouse_id, Lot.item_id, Lot.pack_extension_id,
+    )
+    if warehouse_id:
+        q = q.filter(Lot.warehouse_id == warehouse_id)
+
+    rows = q.all()
+    result = []
+    for row in rows:
+        item = db.query(Item).filter(Item.id == row.item_id).first()
+        wh = db.query(Warehouse).filter(Warehouse.id == row.warehouse_id).first() if row.warehouse_id else None
+        pe = db.query(PackExtensionDefinition).filter(PackExtensionDefinition.id == row.pack_extension_id).first() if row.pack_extension_id else None
+        uom = db.query(UnitOfMeasure).filter(UnitOfMeasure.id == item.primary_uom_id).first() if item and item.primary_uom_id else None
+        from app.models.gl_group import GLGroup
+        gl = db.query(GLGroup).filter(GLGroup.id == item.gl_group_id).first() if item and item.gl_group_id else None
+
+        item_code = item.item_code if item else ""
+        if pe:
+            item_code = f"{item_code}{pe.code}"
+
+        result.append({
+            "warehouse_code": wh.code if wh else "Unassigned",
+            "warehouse_name": wh.name if wh else "Unassigned",
+            "warehouse_id": row.warehouse_id,
+            "item_id": row.item_id,
+            "item_code": item_code,
+            "item_base_code": item.item_code if item else "",
+            "item_name": item.name if item else "",
+            "pack_extension_id": row.pack_extension_id,
+            "pack_extension_code": pe.code if pe else None,
+            "pack_extension_name": pe.name if pe else None,
+            "qty_on_hand": float(row.qty_on_hand),
+            "qty_allocated": float(row.qty_allocated),
+            "uom_abbreviation": uom.abbreviation if uom else "",
+            "gl_group_name": gl.name if gl else "",
+        })
+    result.sort(key=lambda r: (r["warehouse_code"], r["item_code"]))
     return result
 
 

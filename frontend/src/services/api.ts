@@ -87,6 +87,7 @@ export const inventoryAPI = {
   updateUOM: (id: number, data: any) => api.put(`/inventory/uoms/${id}`, data),
   deleteUOM: (id: number) => api.delete(`/inventory/uoms/${id}`),
   getValuation: (itemId?: number) => api.get('/inventory/valuation', { params: { item_id: itemId } }),
+  getInventorySummary: (params?: any) => api.get('/inventory/summary', { params }),
   listAliases: (itemId: number) => api.get(`/inventory/items/${itemId}/aliases`),
   createAlias: (itemId: number, data: any) => api.post(`/inventory/items/${itemId}/aliases`, data),
   updateAlias: (aliasId: number, data: any) => api.put(`/inventory/aliases/${aliasId}`, data),
