@@ -201,6 +201,39 @@ class BatchExecutionOutputResponse(BaseModel):
         from_attributes = True
 
 
+class BatchExecutionQCResultCreate(BaseModel):
+    qc_test_definition_id: int
+    target_value: Optional[Decimal] = None
+    min_value: Optional[Decimal] = None
+    max_value: Optional[Decimal] = None
+    result_value: Optional[Decimal] = None
+    result_text: Optional[str] = None
+    passed: Optional[bool] = None
+    notes: Optional[str] = None
+
+
+class BatchExecutionQCResultResponse(BaseModel):
+    id: int
+    execution_id: int
+    qc_test_definition_id: int
+    target_value: Optional[Decimal] = None
+    min_value: Optional[Decimal] = None
+    max_value: Optional[Decimal] = None
+    result_value: Optional[Decimal] = None
+    result_text: Optional[str] = None
+    passed: Optional[bool] = None
+    tested_by: Optional[int] = None
+    tested_at: Optional[datetime] = None
+    notes: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class BatchExecutionQCRequest(BaseModel):
+    results: List[BatchExecutionQCResultCreate]
+
+
 class BatchExecutionResponse(BaseModel):
     id: int
     batch_ticket_id: int
@@ -212,6 +245,7 @@ class BatchExecutionResponse(BaseModel):
     notes: Optional[str] = None
     consumptions: List[BatchExecutionConsumptionResponse] = []
     outputs: List[BatchExecutionOutputResponse] = []
+    qc_results: List[BatchExecutionQCResultResponse] = []
 
     class Config:
         from_attributes = True

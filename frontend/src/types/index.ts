@@ -610,6 +610,32 @@ export interface BatchExecutionOutput {
   total_cost: number | null;
 }
 
+export interface BatchExecutionQCResult {
+  id: number;
+  execution_id: number;
+  qc_test_definition_id: number;
+  target_value: number | null;
+  min_value: number | null;
+  max_value: number | null;
+  result_value: number | null;
+  result_text: string | null;
+  passed: boolean | null;
+  tested_by: number | null;
+  tested_at: string | null;
+  notes: string | null;
+}
+
+export interface QCTestAssignment {
+  assignment_id: number;
+  qc_test_definition_id: number;
+  test_name: string;
+  test_type: string;
+  method: string | null;
+  target_value: number | null;
+  min_value: number | null;
+  max_value: number | null;
+}
+
 export interface BatchExecution {
   id: number;
   batch_ticket_id: number;
@@ -621,4 +647,5 @@ export interface BatchExecution {
   notes: string | null;
   consumptions: BatchExecutionConsumption[];
   outputs: BatchExecutionOutput[];
+  qc_results: BatchExecutionQCResult[];
 }

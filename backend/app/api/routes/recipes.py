@@ -10,14 +10,16 @@ from app.models.recipes import (
     Recipe, RecipeVersion, RecipeIngredient, RecipeProcedureStep,
     BatchTicket, BatchTicketPackage, BatchTicketMaterial,
     BatchExecution, BatchExecutionConsumption, BatchExecutionOutput,
+    BatchExecutionQCResult,
 )
-from app.models.inventory import Item, Lot, InventoryTransaction, FIFOCostLayer
+from app.models.inventory import Item, Lot, InventoryTransaction, FIFOCostLayer, ItemQCTest
+from app.models.documents import COACertificate
 from app.schemas.recipes import (
     RecipeCreate, RecipeUpdate, RecipeResponse,
     RecipeVersionCreate, RecipeVersionResponse,
     BatchTicketCreate, BatchTicketUpdate, BatchTicketResponse,
     BatchExecutionStart, BatchExecutionConsumeRequest, BatchExecutionCompleteRequest,
-    BatchExecutionResponse,
+    BatchExecutionResponse, BatchExecutionQCRequest, BatchExecutionQCResultResponse,
 )
 
 router = APIRouter(prefix="/recipes", tags=["Recipes"])
@@ -537,4 +539,134 @@ def complete_batch_execution(
         "quantity": float(req.output.quantity),
         "unit_cost": float(unit_cost),
         "yield_percent": float(execution.yield_percent),
+    }
+
+
+# ===== QC CHECK DURING EXECUTION =====
+
+@router.get("/batch-tickets/{ticket_id}/execute/qc-tests")
+def get_execution_qc_tests(
+    ticket_id: int,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get QC test assignments for the product item of this batch ticket."""
+    ticket = db.query(BatchTicket).filter(BatchTicket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Batch ticket not found")
+    assignments = db.query(ItemQCTest).filter(ItemQCTest.item_id == ticket.item_id).all()
+    result = []
+    for a in assignments:
+        td = a.qc_test_definition
+        result.append({
+            "assignment_id": a.id,
+            "qc_test_definition_id": td.id,
+            "test_name": td.name,
+            "test_type": td.test_type,
+            "method": td.method,
+            "target_value": float(a.target_value) if a.target_value is not None else None,
+            "min_value": float(a.min_value) if a.min_value is not None else None,
+            "max_value": float(a.max_value) if a.max_value is not None else None,
+        })
+    return result
+
+
+@router.post("/batch-tickets/{ticket_id}/execute/qc-results", response_model=List[BatchExecutionQCResultResponse])
+def record_execution_qc_results(
+    ticket_id: int, req: BatchExecutionQCRequest,
+    current_user=Depends(require_permission("quality", "create")),
+    db: Session = Depends(get_db),
+):
+    """Record QC results during batch execution."""
+    execution = db.query(BatchExecution).filter(BatchExecution.batch_ticket_id == ticket_id).first()
+    if not execution:
+        raise HTTPException(status_code=404, detail="Execution not found")
+    # Clear existing QC results for this execution
+    db.query(BatchExecutionQCResult).filter(
+        BatchExecutionQCResult.execution_id == execution.id
+    ).delete()
+    new_results = []
+    for r in req.results:
+        # Auto-calculate passed if min/max and result_value are provided
+        passed = r.passed
+        if passed is None and r.result_value is not None:
+            if r.min_value is not None and r.max_value is not None:
+                passed = r.min_value <= r.result_value <= r.max_value
+            elif r.min_value is not None:
+                passed = r.result_value >= r.min_value
+            elif r.max_value is not None:
+                passed = r.result_value <= r.max_value
+        qc_result = BatchExecutionQCResult(
+            execution_id=execution.id,
+            qc_test_definition_id=r.qc_test_definition_id,
+            target_value=r.target_value,
+            min_value=r.min_value,
+            max_value=r.max_value,
+            result_value=r.result_value,
+            result_text=r.result_text,
+            passed=passed,
+            tested_by=current_user.id,
+            notes=r.notes,
+        )
+        db.add(qc_result)
+        new_results.append(qc_result)
+    db.commit()
+    for r in new_results:
+        db.refresh(r)
+    return new_results
+
+
+@router.get("/batch-tickets/{ticket_id}/execute/qc-results", response_model=List[BatchExecutionQCResultResponse])
+def get_execution_qc_results(
+    ticket_id: int,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    execution = db.query(BatchExecution).filter(BatchExecution.batch_ticket_id == ticket_id).first()
+    if not execution:
+        raise HTTPException(status_code=404, detail="Execution not found")
+    return execution.qc_results
+
+
+@router.post("/batch-tickets/{ticket_id}/execute/create-coa")
+def create_coa_from_execution(
+    ticket_id: int,
+    customer_id: Optional[int] = None,
+    notes: Optional[str] = None,
+    current_user=Depends(require_permission("quality", "create")),
+    db: Session = Depends(get_db),
+):
+    """Create a COA certificate from the QC results of a batch execution."""
+    execution = db.query(BatchExecution).filter(BatchExecution.batch_ticket_id == ticket_id).first()
+    if not execution:
+        raise HTTPException(status_code=404, detail="Execution not found")
+    if not execution.outputs:
+        raise HTTPException(status_code=400, detail="No output recorded yet. Complete execution first.")
+    if not execution.qc_results:
+        raise HTTPException(status_code=400, detail="No QC results recorded. Record QC results first.")
+    output_lot_id = execution.outputs[0].lot_id
+    if not output_lot_id:
+        raise HTTPException(status_code=400, detail="No output lot found")
+    ticket = execution.batch_ticket
+    # Use the ticket's customer_id if not provided
+    coa_customer_id = customer_id or ticket.customer_id
+    # Generate certificate number
+    last_coa = db.query(COACertificate).order_by(COACertificate.id.desc()).first()
+    coa_num = (last_coa.id + 1) if last_coa else 1
+    coa = COACertificate(
+        certificate_number=f"COA-{coa_num:06d}",
+        lot_id=output_lot_id,
+        customer_id=coa_customer_id,
+        status="draft",
+        notes=notes,
+        created_by=current_user.id,
+    )
+    db.add(coa)
+    db.commit()
+    db.refresh(coa)
+    return {
+        "detail": "COA created",
+        "coa_id": coa.id,
+        "certificate_number": coa.certificate_number,
+        "lot_id": output_lot_id,
     }

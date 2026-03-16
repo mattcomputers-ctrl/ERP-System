@@ -132,6 +132,7 @@ class BatchExecution(Base):
     batch_ticket = relationship("BatchTicket", back_populates="execution")
     consumptions = relationship("BatchExecutionConsumption", back_populates="execution", cascade="all, delete-orphan")
     outputs = relationship("BatchExecutionOutput", back_populates="execution", cascade="all, delete-orphan")
+    qc_results = relationship("BatchExecutionQCResult", back_populates="execution", cascade="all, delete-orphan")
 
 
 class BatchExecutionConsumption(Base):
@@ -163,3 +164,22 @@ class BatchExecutionOutput(Base):
     execution = relationship("BatchExecution", back_populates="outputs")
     item = relationship("Item")
     lot = relationship("Lot")
+
+
+class BatchExecutionQCResult(Base):
+    """QC test results recorded during batch execution for COA creation."""
+    __tablename__ = "batch_execution_qc_results"
+    id = Column(Integer, primary_key=True, index=True)
+    execution_id = Column(Integer, ForeignKey("batch_executions.id", ondelete="CASCADE"), nullable=False)
+    qc_test_definition_id = Column(Integer, ForeignKey("qc_test_definitions.id"), nullable=False)
+    target_value = Column(Numeric(18, 6), nullable=True)
+    min_value = Column(Numeric(18, 6), nullable=True)
+    max_value = Column(Numeric(18, 6), nullable=True)
+    result_value = Column(Numeric(18, 6), nullable=True)
+    result_text = Column(String(500), nullable=True)
+    passed = Column(Boolean, nullable=True)
+    tested_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    tested_at = Column(DateTime(timezone=True), server_default=func.now())
+    notes = Column(Text, nullable=True)
+    execution = relationship("BatchExecution", back_populates="qc_results")
+    qc_test_definition = relationship("QCTestDefinition")

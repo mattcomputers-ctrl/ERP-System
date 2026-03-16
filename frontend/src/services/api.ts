@@ -245,6 +245,11 @@ export const recipesAPI = {
   getExecution: (ticketId: number) => api.get(`/recipes/batch-tickets/${ticketId}/execution`),
   recordConsumption: (ticketId: number, data: any) => api.post(`/recipes/batch-tickets/${ticketId}/execute/consume`, data),
   completeExecution: (ticketId: number, data: any) => api.post(`/recipes/batch-tickets/${ticketId}/execute/complete`, data),
+  // QC during execution
+  getExecutionQCTests: (ticketId: number) => api.get(`/recipes/batch-tickets/${ticketId}/execute/qc-tests`),
+  recordExecutionQCResults: (ticketId: number, data: any) => api.post(`/recipes/batch-tickets/${ticketId}/execute/qc-results`, data),
+  getExecutionQCResults: (ticketId: number) => api.get(`/recipes/batch-tickets/${ticketId}/execute/qc-results`),
+  createCOAFromExecution: (ticketId: number, params?: any) => api.post(`/recipes/batch-tickets/${ticketId}/execute/create-coa`, null, { params }),
 };
 
 // --- Documents ---
