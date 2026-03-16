@@ -121,7 +121,23 @@ export interface Customer {
   billing_postal_code: string | null;
   billing_country: string;
   payment_terms: string | null;
+  credit_limit: number | null;
+  sales_rep: string | null;
+  default_ship_via_id: number | null;
+  sales_tax_option_id: number | null;
   tax_exempt: boolean;
+  tax_id_number: string | null;
+  internal_memo: string | null;
+  shipping_memo: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface SalesTaxOption {
+  id: number;
+  name: string;
+  description: string | null;
+  qb_tax_code: string | null;
   is_active: boolean;
   created_at: string;
 }

@@ -218,6 +218,10 @@ export const settingsAPI = {
   getShipTo: (id: number) => api.get(`/settings/ship-tos/${id}`),
   updateShipTo: (id: number, data: any) => api.put(`/settings/ship-tos/${id}`, data),
   deleteShipTo: (id: number) => api.delete(`/settings/ship-tos/${id}`),
+  listSalesTaxOptions: () => api.get('/settings/sales-tax-options'),
+  createSalesTaxOption: (data: any) => api.post('/settings/sales-tax-options', data),
+  updateSalesTaxOption: (id: number, data: any) => api.put(`/settings/sales-tax-options/${id}`, data),
+  deleteSalesTaxOption: (id: number) => api.delete(`/settings/sales-tax-options/${id}`),
 };
 
 // --- Documents ---

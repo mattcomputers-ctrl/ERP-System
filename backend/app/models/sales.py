@@ -27,13 +27,22 @@ class Customer(Base):
     postal_code = Column(String(20), nullable=True)
     country = Column(String(100), default="US")
     payment_terms = Column(String(50), nullable=True)
+    credit_limit = Column(Numeric(18, 2), nullable=True)
+    sales_rep = Column(String(200), nullable=True)
+    default_ship_via_id = Column(Integer, ForeignKey("ship_vias.id"), nullable=True)
+    sales_tax_option_id = Column(Integer, ForeignKey("sales_tax_options.id"), nullable=True)
     tax_exempt = Column(Boolean, default=False)
+    tax_id_number = Column(String(100), nullable=True)
+    internal_memo = Column(Text, nullable=True)
+    shipping_memo = Column(Text, nullable=True)
     qb_list_id = Column(String(200), nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     sales_orders = relationship("SalesOrder", back_populates="customer")
     ship_tos = relationship("ShipTo", back_populates="customer", cascade="all, delete-orphan")
+    default_ship_via = relationship("ShipVia")
+    sales_tax_option = relationship("SalesTaxOption")
 
 
 class ShipTo(Base):

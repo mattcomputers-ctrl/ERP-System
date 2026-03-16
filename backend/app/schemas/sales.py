@@ -24,7 +24,14 @@ class CustomerBase(BaseModel):
     postal_code: Optional[str] = None
     country: str = "US"
     payment_terms: Optional[str] = None
+    credit_limit: Optional[Decimal] = None
+    sales_rep: Optional[str] = None
+    default_ship_via_id: Optional[int] = None
+    sales_tax_option_id: Optional[int] = None
     tax_exempt: bool = False
+    tax_id_number: Optional[str] = None
+    internal_memo: Optional[str] = None
+    shipping_memo: Optional[str] = None
 
 
 class CustomerCreate(CustomerBase):
@@ -43,7 +50,14 @@ class CustomerUpdate(BaseModel):
     billing_postal_code: Optional[str] = None
     billing_country: Optional[str] = None
     payment_terms: Optional[str] = None
+    credit_limit: Optional[Decimal] = None
+    sales_rep: Optional[str] = None
+    default_ship_via_id: Optional[int] = None
+    sales_tax_option_id: Optional[int] = None
     tax_exempt: Optional[bool] = None
+    tax_id_number: Optional[str] = None
+    internal_memo: Optional[str] = None
+    shipping_memo: Optional[str] = None
     is_active: Optional[bool] = None
 
 

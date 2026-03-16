@@ -61,6 +61,34 @@ class BrandingResponse(BrandingBase):
         from_attributes = True
 
 
+# --- Sales Tax Options ---
+
+class SalesTaxOptionBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    qb_tax_code: Optional[str] = None
+
+
+class SalesTaxOptionCreate(SalesTaxOptionBase):
+    pass
+
+
+class SalesTaxOptionUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    qb_tax_code: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class SalesTaxOptionResponse(SalesTaxOptionBase):
+    id: int
+    is_active: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 # --- Price List ---
 
 class PriceListBase(BaseModel):

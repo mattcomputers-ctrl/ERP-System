@@ -5,12 +5,15 @@ import PageHeader from '../components/common/PageHeader';
 import DataTable from '../components/common/DataTable';
 import Modal from '../components/common/Modal';
 import { salesAPI, settingsAPI } from '../services/api';
-import type { Customer, ShipTo } from '../types';
+import type { Customer, ShipTo, ShipVia, SalesTaxOption } from '../types';
 
 const emptyCustomer = {
   code: '', name: '', contact_name: '', email: '', phone: '',
   billing_address_line1: '', billing_address_line2: '', billing_city: '', billing_state: '', billing_postal_code: '', billing_country: 'US',
-  payment_terms: 'Net 30', tax_exempt: false,
+  payment_terms: 'Net 30', credit_limit: '' as string, sales_rep: '',
+  default_ship_via_id: null as number | null, sales_tax_option_id: null as number | null,
+  tax_exempt: false, tax_id_number: '',
+  internal_memo: '', shipping_memo: '',
 };
 
 const emptyShipTo = {
@@ -30,12 +33,17 @@ const CustomersPage: React.FC = () => {
   const queryClient = useQueryClient();
 
   const { data: customers } = useQuery({ queryKey: ['customers'], queryFn: () => salesAPI.listCustomers() });
+  const { data: shipVias } = useQuery({ queryKey: ['ship-vias'], queryFn: () => settingsAPI.listShipVias() });
+  const { data: taxOptions } = useQuery({ queryKey: ['sales-tax-options'], queryFn: () => settingsAPI.listSalesTaxOptions() });
 
   const { data: shipTos } = useQuery({
     queryKey: ['ship-tos', selectedCustomer?.id],
     queryFn: () => settingsAPI.listShipTos({ customer_id: selectedCustomer!.id }),
     enabled: !!selectedCustomer && showShipTos,
   });
+
+  const shipViaList: ShipVia[] = shipVias?.data || [];
+  const taxOptionList: SalesTaxOption[] = taxOptions?.data || [];
 
   const saveCust = useMutation({
     mutationFn: (data: any) => editingCustomer ? salesAPI.updateCustomer(editingCustomer.id, data) : salesAPI.createCustomer(data),
@@ -67,7 +75,13 @@ const CustomersPage: React.FC = () => {
       code: c.code, name: c.name, contact_name: c.contact_name || '', email: c.email || '', phone: c.phone || '',
       billing_address_line1: c.billing_address_line1 || '', billing_address_line2: c.billing_address_line2 || '',
       billing_city: c.billing_city || '', billing_state: c.billing_state || '', billing_postal_code: c.billing_postal_code || '',
-      billing_country: c.billing_country || 'US', payment_terms: c.payment_terms || '', tax_exempt: c.tax_exempt,
+      billing_country: c.billing_country || 'US', payment_terms: c.payment_terms || '',
+      credit_limit: c.credit_limit != null ? String(c.credit_limit) : '',
+      sales_rep: c.sales_rep || '',
+      default_ship_via_id: c.default_ship_via_id || null,
+      sales_tax_option_id: c.sales_tax_option_id || null,
+      tax_exempt: c.tax_exempt, tax_id_number: c.tax_id_number || '',
+      internal_memo: c.internal_memo || '', shipping_memo: c.shipping_memo || '',
     });
     setShowForm(true);
   };
@@ -82,6 +96,17 @@ const CustomersPage: React.FC = () => {
       contact_name: st.contact_name || '', phone: st.phone || '', is_default: st.is_default,
     });
     setShowShipToForm(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const payload: any = { ...form };
+    if (payload.credit_limit === '') {
+      payload.credit_limit = null;
+    } else {
+      payload.credit_limit = Number(payload.credit_limit);
+    }
+    saveCust.mutate(payload);
   };
 
   const columns = [
@@ -100,13 +125,6 @@ const CustomersPage: React.FC = () => {
     )) },
   ];
 
-  const F = (label: string, field: string, props: any = {}) => (
-    <div>
-      <label className="block text-sm font-medium mb-1">{label}</label>
-      <input className="input-field" value={(form as any)[field]} onChange={(e) => setForm({ ...form, [field]: e.target.value })} {...props} />
-    </div>
-  );
-
   return (
     <div>
       <PageHeader title="Customers" subtitle="Manage customers and ship-to addresses" actions={<button className="btn-primary" onClick={() => setShowForm(true)}>New Customer</button>} />
@@ -114,28 +132,115 @@ const CustomersPage: React.FC = () => {
 
       {/* Customer Create/Edit */}
       <Modal isOpen={showForm} onClose={closeForm} title={editingCustomer ? 'Edit Customer' : 'New Customer'} size="xl">
-        <form onSubmit={(e) => { e.preventDefault(); saveCust.mutate(form); }} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Basic Info */}
+          <h3 className="text-sm font-semibold text-gray-700">General</h3>
           <div className="grid grid-cols-3 gap-4">
-            {F('Code', 'code', { required: true, disabled: !!editingCustomer })}
-            {F('Name', 'name', { required: true })}
-            {F('Contact Name', 'contact_name')}
-            {F('Email', 'email', { type: 'email' })}
-            {F('Phone', 'phone')}
-            {F('Payment Terms', 'payment_terms')}
+            <div>
+              <label className="block text-sm font-medium mb-1">Code</label>
+              <input className="input-field" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required disabled={!!editingCustomer} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Name</label>
+              <input className="input-field" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Contact Name</label>
+              <input className="input-field" value={form.contact_name} onChange={(e) => setForm({ ...form, contact_name: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Email</label>
+              <input className="input-field" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Phone</label>
+              <input className="input-field" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Sales Rep</label>
+              <input className="input-field" value={form.sales_rep} onChange={(e) => setForm({ ...form, sales_rep: e.target.value })} />
+            </div>
           </div>
-          <h3 className="text-sm font-semibold text-gray-700 mt-4">Billing Address</h3>
+
+          {/* Billing Address */}
+          <h3 className="text-sm font-semibold text-gray-700 mt-4">Bill-To Address</h3>
           <div className="grid grid-cols-3 gap-4">
-            {F('Address Line 1', 'billing_address_line1')}
-            {F('Address Line 2', 'billing_address_line2')}
-            {F('City', 'billing_city')}
-            {F('State', 'billing_state')}
-            {F('Postal Code', 'billing_postal_code')}
-            {F('Country', 'billing_country')}
+            <div>
+              <label className="block text-sm font-medium mb-1">Address Line 1</label>
+              <input className="input-field" value={form.billing_address_line1} onChange={(e) => setForm({ ...form, billing_address_line1: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Address Line 2</label>
+              <input className="input-field" value={form.billing_address_line2} onChange={(e) => setForm({ ...form, billing_address_line2: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">City</label>
+              <input className="input-field" value={form.billing_city} onChange={(e) => setForm({ ...form, billing_city: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">State</label>
+              <input className="input-field" value={form.billing_state} onChange={(e) => setForm({ ...form, billing_state: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Postal Code</label>
+              <input className="input-field" value={form.billing_postal_code} onChange={(e) => setForm({ ...form, billing_postal_code: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Country</label>
+              <input className="input-field" value={form.billing_country} onChange={(e) => setForm({ ...form, billing_country: e.target.value })} />
+            </div>
           </div>
-          <div className="flex items-center gap-2 mt-2">
-            <input type="checkbox" id="tax_exempt" checked={form.tax_exempt} onChange={(e) => setForm({ ...form, tax_exempt: e.target.checked })} />
-            <label htmlFor="tax_exempt" className="text-sm">Tax Exempt</label>
+
+          {/* Terms, Pricing & Tax */}
+          <h3 className="text-sm font-semibold text-gray-700 mt-4">Terms & Tax</h3>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Payment Terms</label>
+              <input className="input-field" value={form.payment_terms} onChange={(e) => setForm({ ...form, payment_terms: e.target.value })} placeholder="e.g., Net 30" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Credit Limit</label>
+              <input className="input-field" type="number" step="0.01" value={form.credit_limit} onChange={(e) => setForm({ ...form, credit_limit: e.target.value })} placeholder="0.00" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Default Ship Via</label>
+              <select className="input-field" value={form.default_ship_via_id || ''} onChange={(e) => setForm({ ...form, default_ship_via_id: e.target.value ? Number(e.target.value) : null })}>
+                <option value="">-- None --</option>
+                {shipViaList.map(sv => <option key={sv.id} value={sv.id}>{sv.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Sales Tax Option</label>
+              <select className="input-field" value={form.sales_tax_option_id || ''} onChange={(e) => setForm({ ...form, sales_tax_option_id: e.target.value ? Number(e.target.value) : null })}>
+                <option value="">-- None --</option>
+                {taxOptionList.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Tax ID #</label>
+              <input className="input-field" value={form.tax_id_number} onChange={(e) => setForm({ ...form, tax_id_number: e.target.value })} />
+            </div>
+            <div className="flex items-end">
+              <div className="flex items-center gap-2 pb-2">
+                <input type="checkbox" id="tax_exempt" checked={form.tax_exempt} onChange={(e) => setForm({ ...form, tax_exempt: e.target.checked })} />
+                <label htmlFor="tax_exempt" className="text-sm">Tax Exempt</label>
+              </div>
+            </div>
           </div>
+
+          {/* Memos */}
+          <h3 className="text-sm font-semibold text-gray-700 mt-4">Memos</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Internal Memo</label>
+              <textarea className="input-field" rows={3} value={form.internal_memo} onChange={(e) => setForm({ ...form, internal_memo: e.target.value })} placeholder="Internal notes (not printed)" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Shipping Memo</label>
+              <textarea className="input-field" rows={3} value={form.shipping_memo} onChange={(e) => setForm({ ...form, shipping_memo: e.target.value })} placeholder="Notes for shipping paperwork" />
+            </div>
+          </div>
+
           <div className="flex justify-end gap-3">
             <button type="button" className="btn-secondary" onClick={closeForm}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={saveCust.isPending}>{editingCustomer ? 'Save' : 'Create'}</button>

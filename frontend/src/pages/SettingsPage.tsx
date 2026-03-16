@@ -5,9 +5,9 @@ import PageHeader from '../components/common/PageHeader';
 import DataTable from '../components/common/DataTable';
 import Modal from '../components/common/Modal';
 import { settingsAPI, inventoryAPI } from '../services/api';
-import type { ShipVia, Branding, QCTestDefinition, PackExtensionDefinition, Item, UOM } from '../types';
+import type { ShipVia, Branding, QCTestDefinition, PackExtensionDefinition, Item, UOM, SalesTaxOption } from '../types';
 
-type SettingsTab = 'branding' | 'ship-vias' | 'uom' | 'qc-tests' | 'pack-extensions';
+type SettingsTab = 'branding' | 'ship-vias' | 'uom' | 'qc-tests' | 'pack-extensions' | 'sales-tax';
 
 const SettingsPage: React.FC = () => {
   const [tab, setTab] = useState<SettingsTab>('branding');
@@ -29,6 +29,11 @@ const SettingsPage: React.FC = () => {
   const [editingQCTest, setEditingQCTest] = useState<QCTestDefinition | null>(null);
   const [qcTestForm, setQcTestForm] = useState({ name: '', test_type: 'range', method: '', uom_id: null as number | null });
 
+  // Sales Tax Option state
+  const [showTaxForm, setShowTaxForm] = useState(false);
+  const [editingTax, setEditingTax] = useState<SalesTaxOption | null>(null);
+  const [taxForm, setTaxForm] = useState({ name: '', description: '', qb_tax_code: '' });
+
   // Pack Extension Definition state
   const [showPackExtForm, setShowPackExtForm] = useState(false);
   const [editingPackExt, setEditingPackExt] = useState<PackExtensionDefinition | null>(null);
@@ -42,6 +47,7 @@ const SettingsPage: React.FC = () => {
   const { data: shipVias } = useQuery({ queryKey: ['ship-vias'], queryFn: () => settingsAPI.listShipVias() });
   const { data: qcTestDefs } = useQuery({ queryKey: ['qc-test-definitions'], queryFn: () => inventoryAPI.listQCTestDefinitions() });
   const { data: packExtDefs } = useQuery({ queryKey: ['pack-extension-definitions'], queryFn: () => inventoryAPI.listPackExtensionDefinitions() });
+  const { data: salesTaxOptions } = useQuery({ queryKey: ['sales-tax-options'], queryFn: () => settingsAPI.listSalesTaxOptions() });
   const { data: itemsList } = useQuery({ queryKey: ['items'], queryFn: () => inventoryAPI.listItems() });
   const { data: uoms } = useQuery({ queryKey: ['uoms'], queryFn: () => inventoryAPI.listUOMs() });
 
@@ -116,6 +122,19 @@ const SettingsPage: React.FC = () => {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['pack-extension-definitions'] }); toast.success('Pack extension deactivated'); },
   });
 
+  // --- Sales Tax Option mutations ---
+  const saveTax = useMutation({
+    mutationFn: (data: any) => editingTax ? settingsAPI.updateSalesTaxOption(editingTax.id, data) : settingsAPI.createSalesTaxOption(data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['sales-tax-options'] }); closeTaxForm(); toast.success(editingTax ? 'Tax option updated' : 'Tax option created'); },
+    onError: (err: any) => toast.error(err?.response?.data?.detail || 'Failed to save tax option'),
+  });
+
+  const deleteTax = useMutation({
+    mutationFn: (id: number) => settingsAPI.deleteSalesTaxOption(id),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['sales-tax-options'] }); toast.success('Tax option deactivated'); },
+    onError: () => toast.error('Failed to delete tax option'),
+  });
+
   // --- Form helpers ---
   const closeShipViaForm = () => { setShowShipViaForm(false); setEditingShipVia(null); setShipViaForm({ name: '', carrier: '', account_number: '' }); };
   const openEditShipVia = (sv: ShipVia) => {
@@ -136,6 +155,13 @@ const SettingsPage: React.FC = () => {
     setEditingQCTest(td);
     setQcTestForm({ name: td.name, test_type: td.test_type, method: td.method || '', uom_id: td.uom_id });
     setShowQCTestForm(true);
+  };
+
+  const closeTaxForm = () => { setShowTaxForm(false); setEditingTax(null); setTaxForm({ name: '', description: '', qb_tax_code: '' }); };
+  const openEditTax = (t: SalesTaxOption) => {
+    setEditingTax(t);
+    setTaxForm({ name: t.name, description: t.description || '', qb_tax_code: t.qb_tax_code || '' });
+    setShowTaxForm(true);
   };
 
   const closePackExtForm = () => { setShowPackExtForm(false); setEditingPackExt(null); setPackExtForm({ code: '', name: '', description: '', materials: [] }); setMaterialForm({ material_item_id: 0, quantity_per_lb: '', uom_id: null }); };
@@ -206,12 +232,26 @@ const SettingsPage: React.FC = () => {
     )) },
   ];
 
+  const taxColumns = [
+    { header: 'Name', accessor: 'name' as keyof SalesTaxOption },
+    { header: 'Description', accessor: ((row: SalesTaxOption) => row.description || '-') },
+    { header: 'QB Tax Code', accessor: ((row: SalesTaxOption) => row.qb_tax_code || '-') },
+    { header: 'Status', accessor: ((row: SalesTaxOption) => <span className={row.is_active ? 'badge-green' : 'badge-red'}>{row.is_active ? 'Active' : 'Inactive'}</span>) },
+    { header: 'Actions', accessor: ((row: SalesTaxOption) => (
+      <div className="flex gap-2">
+        <button className="text-sm text-blue-600 hover:underline" onClick={(e) => { e.stopPropagation(); openEditTax(row); }}>Edit</button>
+        <button className="text-sm text-red-600 hover:underline" onClick={(e) => { e.stopPropagation(); deleteTax.mutate(row.id); }}>Delete</button>
+      </div>
+    )) },
+  ];
+
   const tabs: { id: SettingsTab; label: string }[] = [
     { id: 'branding', label: 'Branding' },
     { id: 'ship-vias', label: 'Ship Vias' },
     { id: 'uom', label: 'Units of Measure' },
     { id: 'qc-tests', label: 'QC Tests' },
     { id: 'pack-extensions', label: 'Pack Extensions' },
+    { id: 'sales-tax', label: 'Sales Tax Options' },
   ];
 
   const getTabAction = () => {
@@ -219,6 +259,7 @@ const SettingsPage: React.FC = () => {
     if (tab === 'uom') return <button className="btn-primary" onClick={() => setShowUOMForm(true)}>New UOM</button>;
     if (tab === 'qc-tests') return <button className="btn-primary" onClick={() => setShowQCTestForm(true)}>New QC Test</button>;
     if (tab === 'pack-extensions') return <button className="btn-primary" onClick={() => setShowPackExtForm(true)}>New Pack Extension</button>;
+    if (tab === 'sales-tax') return <button className="btn-primary" onClick={() => setShowTaxForm(true)}>New Tax Option</button>;
     return undefined;
   };
 
@@ -335,6 +376,13 @@ const SettingsPage: React.FC = () => {
         </div>
       )}
 
+      {/* ======== SALES TAX OPTIONS TAB ======== */}
+      {tab === 'sales-tax' && (
+        <div className="card">
+          <DataTable columns={taxColumns} data={salesTaxOptions?.data || []} />
+        </div>
+      )}
+
       {/* Ship Via Form Modal */}
       <Modal isOpen={showShipViaForm} onClose={closeShipViaForm} title={editingShipVia ? 'Edit Ship Via' : 'New Ship Via'}>
         <form onSubmit={(e) => { e.preventDefault(); saveShipVia.mutate(shipViaForm); }} className="space-y-4">
@@ -414,6 +462,28 @@ const SettingsPage: React.FC = () => {
           <div className="flex justify-end gap-3">
             <button type="button" className="btn-secondary" onClick={closeQCTestForm}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={saveQCTest.isPending}>{editingQCTest ? 'Save' : 'Create'}</button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Sales Tax Option Form Modal */}
+      <Modal isOpen={showTaxForm} onClose={closeTaxForm} title={editingTax ? 'Edit Sales Tax Option' : 'New Sales Tax Option'}>
+        <form onSubmit={(e) => { e.preventDefault(); saveTax.mutate(taxForm); }} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Name</label>
+            <input className="input-field" value={taxForm.name} onChange={(e) => setTaxForm({ ...taxForm, name: e.target.value })} required placeholder="e.g., Standard Tax" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Description</label>
+            <input className="input-field" value={taxForm.description} onChange={(e) => setTaxForm({ ...taxForm, description: e.target.value })} placeholder="Optional description" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">QuickBooks Tax Code</label>
+            <input className="input-field" value={taxForm.qb_tax_code} onChange={(e) => setTaxForm({ ...taxForm, qb_tax_code: e.target.value })} placeholder="e.g., TAX or NON" />
+          </div>
+          <div className="flex justify-end gap-3">
+            <button type="button" className="btn-secondary" onClick={closeTaxForm}>Cancel</button>
+            <button type="submit" className="btn-primary" disabled={saveTax.isPending}>{editingTax ? 'Save' : 'Create'}</button>
           </div>
         </form>
       </Modal>

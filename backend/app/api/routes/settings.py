@@ -3,13 +3,14 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.core.database import get_db
 from app.core.security import get_current_user, require_permission
-from app.models.settings import ShipVia, Branding, PriceList, PriceHistory
+from app.models.settings import ShipVia, Branding, PriceList, PriceHistory, SalesTaxOption
 from app.models.sales import ShipTo, Customer
 from app.schemas.settings import (
     ShipViaCreate, ShipViaUpdate, ShipViaResponse,
     BrandingUpdate, BrandingResponse,
     PriceListCreate, PriceListUpdate, PriceListResponse, PriceHistoryResponse,
     ShipToCreate, ShipToUpdate, ShipToResponse,
+    SalesTaxOptionCreate, SalesTaxOptionUpdate, SalesTaxOptionResponse,
 )
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
@@ -262,3 +263,58 @@ def delete_ship_to(
     st.is_active = False
     db.commit()
     return {"detail": "Ship-To deactivated"}
+
+
+# --- Sales Tax Options ---
+
+@router.get("/sales-tax-options", response_model=List[SalesTaxOptionResponse])
+def list_sales_tax_options(
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return db.query(SalesTaxOption).filter(SalesTaxOption.is_active == True).all()
+
+
+@router.post("/sales-tax-options", response_model=SalesTaxOptionResponse, status_code=status.HTTP_201_CREATED)
+def create_sales_tax_option(
+    data: SalesTaxOptionCreate,
+    current_user=Depends(require_permission("settings", "create")),
+    db: Session = Depends(get_db),
+):
+    if db.query(SalesTaxOption).filter(SalesTaxOption.name == data.name).first():
+        raise HTTPException(status_code=400, detail="Sales tax option with this name already exists")
+    obj = SalesTaxOption(**data.model_dump())
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+@router.put("/sales-tax-options/{opt_id}", response_model=SalesTaxOptionResponse)
+def update_sales_tax_option(
+    opt_id: int, data: SalesTaxOptionUpdate,
+    current_user=Depends(require_permission("settings", "update")),
+    db: Session = Depends(get_db),
+):
+    obj = db.query(SalesTaxOption).filter(SalesTaxOption.id == opt_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Sales tax option not found")
+    for k, v in data.model_dump(exclude_unset=True).items():
+        setattr(obj, k, v)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+@router.delete("/sales-tax-options/{opt_id}")
+def delete_sales_tax_option(
+    opt_id: int,
+    current_user=Depends(require_permission("settings", "delete")),
+    db: Session = Depends(get_db),
+):
+    obj = db.query(SalesTaxOption).filter(SalesTaxOption.id == opt_id).first()
+    if not obj:
+        raise HTTPException(status_code=404, detail="Sales tax option not found")
+    obj.is_active = False
+    db.commit()
+    return {"detail": "Sales tax option deactivated"}
